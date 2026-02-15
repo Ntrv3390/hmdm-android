@@ -52,6 +52,7 @@ import com.hmdm.launcher.R;
 import com.hmdm.launcher.db.DatabaseHelper;
 import com.hmdm.launcher.db.LocationTable;
 import com.hmdm.launcher.helper.SettingsHelper;
+import com.hmdm.launcher.json.DetailedInfo;
 import com.hmdm.launcher.pro.ProUtils;
 import com.hmdm.launcher.server.ServerService;
 import com.hmdm.launcher.server.ServerServiceKeeper;
@@ -199,7 +200,27 @@ public class LocationService extends Service {
 
         ServerService serverService = ServerServiceKeeper.getServerServiceInstance(context);
         try {
-            Response<ResponseBody> response = serverService.sendLocations(project, deviceId, locations).execute();
+            // Convert LocationTable.Location to DetailedInfo (DeviceDynamicInfo) for Open Source server compatibility
+            List<DetailedInfo> detailedInfos = new java.util.LinkedList<>();
+            for (LocationTable.Location loc : locations) {
+                DetailedInfo detailedInfo = new DetailedInfo();
+                detailedInfo.setTs(loc.getTs());
+                
+                DetailedInfo.Gps gps = new DetailedInfo.Gps();
+                gps.setLat(loc.getLat());
+                gps.setLon(loc.getLon());
+                // gps.setAlt(loc.getAlt());
+                // gps.setSpeed(loc.getSpeed());
+                // gps.setCourse(loc.getCourse());
+                // gps.setState(loc.getState());
+                // gps.setProvider(loc.getProvider());
+                
+                detailedInfo.setGps(gps);
+                detailedInfos.add(detailedInfo);
+            }
+
+            // Use sendDetailedInfo instead of sendLocations
+            Response<ResponseBody> response = serverService.sendDetailedInfo(project, deviceId, detailedInfos).execute();
             if (response.isSuccessful()) {
                 // Remove uploaded items
                 LocationTable.delete(DatabaseHelper.instance(context).getWritableDatabase(), locations);
@@ -208,9 +229,12 @@ public class LocationService extends Service {
                 if (locations.size() == 50) {
                      sendLocations();
                 }
+            } else {
+                 RemoteLogger.log(context, Const.LOG_WARN, "Failed to send locations: " + response.code() + " " + response.message());
             }
         } catch (Exception e) {
             e.printStackTrace();
+            RemoteLogger.log(context, Const.LOG_WARN, "Exception sending locations: " + e.getMessage());
         }
     }
 
