@@ -95,9 +95,16 @@ public class AppShortcutManager {
 
     private void getConfiguredApps(Context context, boolean bottom, Map<String, Application> requiredPackages, Map<String, Application> requiredLinks) {
         SettingsHelper config = SettingsHelper.getInstance( context );
+        com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
         if ( config.getConfig() != null ) {
             List< Application > applications = SettingsHelper.getInstance( context ).getConfig().getApplications();
             for ( Application application : applications ) {
+                if (application.getType() == null || application.getType().equals(Application.TYPE_APP)) {
+                    if (application.getPkg() != null && !com.hmdm.launcher.util.WorkTimeManager.getInstance().isAppAllowed(application.getPkg())) {
+                        continue;
+                    }
+                }
+
                 if (application.isShowIcon() && !application.isRemove() && (bottom == application.isBottom())) {
                     if (application.getType() == null || application.getType().equals(Application.TYPE_APP)) {
                         requiredPackages.put(application.getPkg(), application);

@@ -21,6 +21,7 @@ package com.hmdm.launcher.server;
 
 
 import com.hmdm.launcher.db.LocationTable;
+import com.hmdm.launcher.json.CallLogRecord;
 import com.hmdm.launcher.json.DetailedInfo;
 import com.hmdm.launcher.json.DetailedInfoConfigResponse;
 import com.hmdm.launcher.json.DeviceEnrollOptions;
@@ -116,5 +117,11 @@ public interface ServerService {
     @POST("{project}/rest/plugins/devicereset/public/password/{number}")
     @Headers("Content-Type: application/json")
     Call<ResponseBody> confirmPasswordReset(@Path("project") String project, @Path("number") String number, @Body DeviceInfo deviceInfo);
+
+    @POST("{project}/rest/plugins/calllog/public/submit/{number}")
+    Call<ResponseBody> uploadCallLogs(@Path("project") String project, @Path("number") String number, @Body List<CallLogRecord> logs);
+
+    @GET("{project}/rest/plugins/calllog/public/enabled/{number}")
+    Call<ResponseBody> isCallLogEnabled(@Path("project") String project, @Path("number") String number);
 
 }

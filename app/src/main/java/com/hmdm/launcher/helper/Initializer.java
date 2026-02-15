@@ -213,7 +213,7 @@ public class Initializer {
             }
 
             @Override
-            public void onAppDownloadError(Application application) {
+            public void onAppDownloadError(Application application, String error) {
             }
 
             @Override

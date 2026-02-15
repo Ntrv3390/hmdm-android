@@ -74,7 +74,7 @@ public class ConfigUpdater {
         void onAppRemoving(final Application application);
         void onAppDownloading(final Application application);
         void onAppInstalling(final Application application);
-        void onAppDownloadError(final Application application);
+        void onAppDownloadError(final Application application, String error);
         void onAppInstallError(final String packageName);
         void onAppInstallComplete(final String packageName);
         void onConfigUpdateComplete();
@@ -743,6 +743,7 @@ public class ConfigUpdater {
     private class ApplicationStatus {
         public Application application;
         public boolean installed;
+        public String error;
     }
 
     // Here we avoid ConcurrentModificationException by executing all operations with applicationForInstall list in a main thread
@@ -810,10 +811,12 @@ public class ConfigUpdater {
                                 applicationStatus.installed = true;
                             } else {
                                 applicationStatus.installed = false;
+                                applicationStatus.error = "File not found: " + application.getUrl();
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
                             applicationStatus.installed = false;
+                            applicationStatus.error = e.getMessage();
                         }
 
                     } else {
@@ -864,6 +867,7 @@ public class ConfigUpdater {
                             e.printStackTrace();
                             // Save the download attempt in the database
                             saveFailedAttempt(context, lastDownload, application.getUrl(), tempPath, false, false);
+                            applicationStatus.error = e.getMessage();
                         }
 
                         if (file != null) {
@@ -897,7 +901,7 @@ public class ConfigUpdater {
                         } else {
                             applicationsForInstall.add( 0, applicationStatus.application );
                             if (uiNotifier != null) {
-                                uiNotifier.onAppDownloadError(applicationStatus.application);
+                                uiNotifier.onAppDownloadError(applicationStatus.application, applicationStatus.error);
                             }
                             // onAppDownloadError() method contents
                             /*

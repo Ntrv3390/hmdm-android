@@ -301,6 +301,14 @@ public class MainActivity
     private final BroadcastReceiver stateChangeReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            if (Intent.ACTION_TIME_TICK.equals(intent.getAction())) {
+                 if (com.hmdm.launcher.util.WorkTimeManager.getInstance().shouldRefreshUI()) {
+                     needRedrawContentAfterReconfigure = true;
+                     showContent(settingsHelper.getConfig());
+                 }
+                 return;
+            }
+
             // Log new connection type
             if (intent.getAction().equals(ConnectivityManager.CONNECTIVITY_ACTION)) {
                 ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -410,6 +418,7 @@ public class MainActivity
             intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
             intentFilter.addAction(WifiManager.SUPPLICANT_CONNECTION_CHANGE_ACTION);
             intentFilter.addAction(ConnectivityManager.CONNECTIVITY_ACTION);
+            intentFilter.addAction(Intent.ACTION_TIME_TICK);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 registerReceiver(stateChangeReceiver, intentFilter, Context.RECEIVER_EXPORTED);
             } else {
@@ -1439,7 +1448,7 @@ public class MainActivity
         if (!ProUtils.kioskModeRequired(this) && !isContentShown()) {
             // Notify the error dialog that we're downloading a file, not an app
             downloadingFile = true;
-            createAndShowFileNotDownloadedDialog(remoteFile.getUrl());
+            createAndShowFileNotDownloadedDialog(remoteFile.getUrl(), null);
             binding.setDownloading( false );
         } else {
             // Avoid user interaction in kiosk mode, just ignore download error and keep the old version
@@ -1491,11 +1500,11 @@ public class MainActivity
     }
 
     @Override
-    public void onAppDownloadError(Application application) {
+    public void onAppDownloadError(Application application, String error) {
         if (!ProUtils.kioskModeRequired(MainActivity.this) && !isContentShown()) {
             // Notify the error dialog that we're downloading an app
             downloadingFile = false;
-            createAndShowFileNotDownloadedDialog(application.getName());
+            createAndShowFileNotDownloadedDialog(application.getName(), error);
             binding.setDownloading( false );
         } else {
             // Avoid user interaction in kiosk mode, just ignore download error and keep the old version
@@ -2087,7 +2096,7 @@ public class MainActivity
         startActivity( new Intent( MainActivity.this, AdminModeRequestActivity.class ) );
     }
 
-    private void createAndShowFileNotDownloadedDialog(String fileName) {
+    private void createAndShowFileNotDownloadedDialog(String fileName, String details) {
         dismissDialog(fileNotDownloadedDialog);
         fileNotDownloadedDialog = new Dialog( this );
         dialogFileDownloadingFailedBinding = DataBindingUtil.inflate(
@@ -2096,7 +2105,11 @@ public class MainActivity
                 null,
                 false );
         int errorTextResource = this.downloadingFile ? R.string.main_file_downloading_error : R.string.main_app_downloading_error;
-        dialogFileDownloadingFailedBinding.title.setText( getString(errorTextResource) + " " + fileName );
+        String message = getString(errorTextResource) + " " + fileName;
+        if (details != null && !details.isEmpty()) {
+            message += "\n\n" + details;
+        }
+        dialogFileDownloadingFailedBinding.title.setText( message );
         fileNotDownloadedDialog.setCancelable( false );
         fileNotDownloadedDialog.requestWindowFeature( Window.FEATURE_NO_TITLE );
 

@@ -39,15 +39,24 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 
+import java.util.List;
+
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
 import com.hmdm.launcher.Const;
 import com.hmdm.launcher.R;
+import com.hmdm.launcher.db.DatabaseHelper;
+import com.hmdm.launcher.db.LocationTable;
 import com.hmdm.launcher.helper.SettingsHelper;
 import com.hmdm.launcher.pro.ProUtils;
+import com.hmdm.launcher.server.ServerService;
+import com.hmdm.launcher.server.ServerServiceKeeper;
 import com.hmdm.launcher.util.RemoteLogger;
+
+import okhttp3.ResponseBody;
+import retrofit2.Response;
 
 public class LocationService extends Service {
     private LocationManager locationManager;
@@ -74,6 +83,7 @@ public class LocationService extends Service {
             RemoteLogger.log(LocationService.this, Const.LOG_VERBOSE, "GPS location update: lat="
                     + location.getLatitude() + ", lon=" + location.getLongitude());
             ProUtils.processLocation(LocationService.this, location, LocationManager.GPS_PROVIDER);
+            processLocation(location);
         }
 
         @Override
@@ -96,6 +106,7 @@ public class LocationService extends Service {
             RemoteLogger.log(LocationService.this, Const.LOG_VERBOSE, "Network location update: lat="
                     + location.getLatitude() + ", lon=" + location.getLongitude());
             ProUtils.processLocation(LocationService.this, location, LocationManager.NETWORK_PROVIDER);
+            processLocation(location);
         }
 
         @Override
@@ -114,26 +125,63 @@ public class LocationService extends Service {
     private Handler handler = new Handler();
     private GnssStatus.Callback gnssStatusCallback = null;
 
+
     @Override
     public void onCreate() {
         super.onCreate();
         locationManager = (LocationManager)this.getSystemService(LOCATION_SERVICE);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            gnssStatusCallback = new GnssStatus.Callback() {
-                @Override
-                public void onSatelliteStatusChanged(@NonNull GnssStatus status) {
-                    super.onSatelliteStatusChanged(status);
-                    try {
-                        Log.d(Const.LOG_TAG, "Satellite status changed, count: " + status.getSatelliteCount());
-                        SettingsHelper.getInstance(LocationService.this.getApplicationContext()).setSatelliteCount(status.getSatelliteCount());
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+        // Additional GNSS status callback logic...
+    }
+
+    private void processLocation(Location location) {
+        if (location == null) return;
+        
+        new Thread(() -> {
+            // 1. Save to DB
+            LocationTable.Location dbLocation = new LocationTable.Location(location);
+            LocationTable.insert(DatabaseHelper.instance(this).getWritableDatabase(), dbLocation);
+            
+            // 2. Try to upload immediately
+            sendLocations();
+        }).start();
+    }
+
+    private synchronized void sendLocations() {
+        Context context = this;
+        // Check if we have internet
+        if (!SettingsHelper.getInstance(context).isNetworkConnected()) {
+            return;
+        }
+
+        List<LocationTable.Location> locations = LocationTable.select(DatabaseHelper.instance(context).getReadableDatabase(), 50);
+        if (locations.isEmpty()) {
+            return;
+        }
+
+        SettingsHelper settingsHelper = SettingsHelper.getInstance(context);
+        String deviceId = settingsHelper.getDeviceId();
+        String project = settingsHelper.getServerProject();
+
+        if (deviceId == null || project == null) return;
+
+        ServerService serverService = ServerServiceKeeper.getServerServiceInstance(context);
+        try {
+            Response<ResponseBody> response = serverService.sendLocations(project, deviceId, locations).execute();
+            if (response.isSuccessful()) {
+                // Remove uploaded items
+                LocationTable.delete(DatabaseHelper.instance(context).getWritableDatabase(), locations);
+                
+                // If there are more, send recursively (or next loop)
+                if (locations.size() == 50) {
+                     sendLocations();
                 }
-            };
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
+
 
     @SuppressLint("WrongConstant")
     private void startAsForeground() {

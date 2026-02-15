@@ -263,7 +263,7 @@ public class InitialSetupActivity extends BaseActivity implements ConfigUpdater.
     }
 
     @Override
-    public void onAppDownloadError(Application application) {
+    public void onAppDownloadError(Application application, String error) {
         // Not used in early setup
     }
 

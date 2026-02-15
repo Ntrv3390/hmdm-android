@@ -30,6 +30,8 @@
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.READ_CALL_LOG"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
 <!-- This permission is dangerous and causes blocking by Play Protect in some countries.
      In fact, this permission is currently never used by Headwind MDM.
  -->
@@ -225,6 +227,13 @@
                 <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
                 <!--For HTC devices-->
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name="com.hmdm.launcher.receiver.CallStateReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE"/>
             </intent-filter>
         </receiver>
 
