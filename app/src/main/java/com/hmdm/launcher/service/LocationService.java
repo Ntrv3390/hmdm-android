@@ -19,6 +19,8 @@
 
 package com.hmdm.launcher.service;
 
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Notification;
@@ -59,6 +61,14 @@ import okhttp3.ResponseBody;
 import retrofit2.Response;
 
 public class LocationService extends Service {
+
+    private boolean isNetworkConnected() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) return false;
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
+    }
+
     private LocationManager locationManager;
 
     private static final int NOTIFICATION_ID = 112;
@@ -131,7 +141,29 @@ public class LocationService extends Service {
         super.onCreate();
         locationManager = (LocationManager)this.getSystemService(LOCATION_SERVICE);
 
-        // Additional GNSS status callback logic...
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            gnssStatusCallback = new GnssStatus.Callback() {
+                @Override
+                public void onStarted() {
+                    super.onStarted();
+                }
+
+                @Override
+                public void onStopped() {
+                    super.onStopped();
+                }
+
+                @Override
+                public void onFirstFix(int ttffMillis) {
+                    super.onFirstFix(ttffMillis);
+                }
+
+                @Override
+                public void onSatelliteStatusChanged(@NonNull GnssStatus status) {
+                    super.onSatelliteStatusChanged(status);
+                }
+            };
+        }
     }
 
     private void processLocation(Location location) {
@@ -150,7 +182,7 @@ public class LocationService extends Service {
     private synchronized void sendLocations() {
         Context context = this;
         // Check if we have internet
-        if (!SettingsHelper.getInstance(context).isNetworkConnected()) {
+        if (!isNetworkConnected()) {
             return;
         }
 
@@ -190,7 +222,9 @@ public class LocationService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Notification Channel", NotificationManager.IMPORTANCE_DEFAULT);
             NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            notificationManager.createNotificationChannel(channel);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
             builder = new NotificationCompat.Builder(this, CHANNEL_ID);
         } else {
             builder = new NotificationCompat.Builder( this );
@@ -228,10 +262,12 @@ public class LocationService extends Service {
         locationManager.removeUpdates(networkLocationListener);
         locationManager.removeUpdates(gpsLocationListener);
         try {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_UPDATE_INTERVAL, 0, networkLocationListener);
-            if (updateViaGps) {
+            if (networkEnabled) {
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_UPDATE_INTERVAL, 0, networkLocationListener);
+            }
+            if (updateViaGps && gpsEnabled) {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, LOCATION_UPDATE_INTERVAL, 0, gpsLocationListener);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && gnssStatusCallback != null) {
                     locationManager.registerGnssStatusCallback(gnssStatusCallback, handler);
                 }
             }
@@ -247,10 +283,12 @@ public class LocationService extends Service {
 
     @Override
     public void onDestroy() {
-        locationManager.removeUpdates(networkLocationListener);
-        locationManager.removeUpdates(gpsLocationListener);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            locationManager.unregisterGnssStatusCallback(gnssStatusCallback);
+        if (locationManager != null) {
+            locationManager.removeUpdates(networkLocationListener);
+            locationManager.removeUpdates(gpsLocationListener);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && gnssStatusCallback != null) {
+                locationManager.unregisterGnssStatusCallback(gnssStatusCallback);
+            }
         }
         started = false;
 
