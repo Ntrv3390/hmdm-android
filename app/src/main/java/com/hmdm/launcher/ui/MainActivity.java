@@ -225,6 +225,8 @@ public class MainActivity
                 case Const.ACTION_UPDATE_CONFIGURATION:
                     RemoteLogger.log(context, Const.LOG_DEBUG, "Update configuration by MainActivity");
                     updateConfig(false);
+                    // Force refresh of WorkTime policy
+                    com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
                     break;
                 case Const.ACTION_HIDE_SCREEN:
                     RemoteLogger.log(MainActivity.this, Const.LOG_DEBUG, "Received ACTION_HIDE_SCREEN for package: " + intent.getStringExtra(Const.PACKAGE_NAME));
