@@ -62,6 +62,7 @@ public class CallStateReceiver extends BroadcastReceiver {
         // Schedule worker with a 5-second delay to ensure logs are written
         OneTimeWorkRequest uploadWork = new OneTimeWorkRequest.Builder(CallLogUploadWorker.class)
                 .setInitialDelay(5, TimeUnit.SECONDS)
+                .setExpedited(androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build();
         WorkManager.getInstance(context).enqueue(uploadWork);
     }

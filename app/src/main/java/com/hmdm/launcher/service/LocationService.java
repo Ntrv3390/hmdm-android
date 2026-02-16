@@ -65,7 +65,8 @@ public class LocationService extends Service {
 
     private boolean isNetworkConnected() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm == null) return false;
+        if (cm == null)
+            return false;
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
         return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
     }
@@ -90,7 +91,8 @@ public class LocationService extends Service {
         @Override
         public void onLocationChanged(Location location) {
             // Do nothing here: we use getLastKnownLocation() to determine the location!
-            //Toast.makeText(LocationService.this, "Location updated from GPS", Toast.LENGTH_SHORT).show();
+            // Toast.makeText(LocationService.this, "Location updated from GPS",
+            // Toast.LENGTH_SHORT).show();
             RemoteLogger.log(LocationService.this, Const.LOG_VERBOSE, "GPS location update: lat="
                     + location.getLatitude() + ", lon=" + location.getLongitude());
             ProUtils.processLocation(LocationService.this, location, LocationManager.GPS_PROVIDER);
@@ -113,7 +115,8 @@ public class LocationService extends Service {
         @Override
         public void onLocationChanged(Location location) {
             // Do nothing here: we use getLastKnownLocation() to determine the location!
-            //Toast.makeText(LocationService.this, "Location updated from Network", Toast.LENGTH_SHORT).show();
+            // Toast.makeText(LocationService.this, "Location updated from Network",
+            // Toast.LENGTH_SHORT).show();
             RemoteLogger.log(LocationService.this, Const.LOG_VERBOSE, "Network location update: lat="
                     + location.getLatitude() + ", lon=" + location.getLongitude());
             ProUtils.processLocation(LocationService.this, location, LocationManager.NETWORK_PROVIDER);
@@ -136,11 +139,10 @@ public class LocationService extends Service {
     private Handler handler = new Handler();
     private GnssStatus.Callback gnssStatusCallback = null;
 
-
     @Override
     public void onCreate() {
         super.onCreate();
-        locationManager = (LocationManager)this.getSystemService(LOCATION_SERVICE);
+        locationManager = (LocationManager) this.getSystemService(LOCATION_SERVICE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             gnssStatusCallback = new GnssStatus.Callback() {
@@ -168,13 +170,14 @@ public class LocationService extends Service {
     }
 
     private void processLocation(Location location) {
-        if (location == null) return;
-        
+        if (location == null)
+            return;
+
         new Thread(() -> {
             // 1. Save to DB
             LocationTable.Location dbLocation = new LocationTable.Location(location);
             LocationTable.insert(DatabaseHelper.instance(this).getWritableDatabase(), dbLocation);
-            
+
             // 2. Try to upload immediately
             sendLocations();
         }).start();
@@ -187,7 +190,8 @@ public class LocationService extends Service {
             return;
         }
 
-        List<LocationTable.Location> locations = LocationTable.select(DatabaseHelper.instance(context).getReadableDatabase(), 50);
+        List<LocationTable.Location> locations = LocationTable
+                .select(DatabaseHelper.instance(context).getReadableDatabase(), 50);
         if (locations.isEmpty()) {
             return;
         }
@@ -196,16 +200,18 @@ public class LocationService extends Service {
         String deviceId = settingsHelper.getDeviceId();
         String project = settingsHelper.getServerProject();
 
-        if (deviceId == null || project == null) return;
+        if (deviceId == null || project == null)
+            return;
 
         ServerService serverService = ServerServiceKeeper.getServerServiceInstance(context);
         try {
-            // Convert LocationTable.Location to DetailedInfo (DeviceDynamicInfo) for Open Source server compatibility
+            // Convert LocationTable.Location to DetailedInfo (DeviceDynamicInfo) for Open
+            // Source server compatibility
             List<DetailedInfo> detailedInfos = new java.util.LinkedList<>();
             for (LocationTable.Location loc : locations) {
                 DetailedInfo detailedInfo = new DetailedInfo();
                 detailedInfo.setTs(loc.getTs());
-                
+
                 DetailedInfo.Gps gps = new DetailedInfo.Gps();
                 gps.setLat(loc.getLat());
                 gps.setLon(loc.getLon());
@@ -214,23 +220,25 @@ public class LocationService extends Service {
                 // gps.setCourse(loc.getCourse());
                 // gps.setState(loc.getState());
                 // gps.setProvider(loc.getProvider());
-                
+
                 detailedInfo.setGps(gps);
                 detailedInfos.add(detailedInfo);
             }
 
             // Use sendDetailedInfo instead of sendLocations
-            Response<ResponseBody> response = serverService.sendDetailedInfo(project, deviceId, detailedInfos).execute();
+            Response<ResponseBody> response = serverService.sendDetailedInfo(project, deviceId, detailedInfos)
+                    .execute();
             if (response.isSuccessful()) {
                 // Remove uploaded items
                 LocationTable.delete(DatabaseHelper.instance(context).getWritableDatabase(), locations);
-                
+
                 // If there are more, send recursively (or next loop)
                 if (locations.size() == 50) {
-                     sendLocations();
+                    sendLocations();
                 }
             } else {
-                 RemoteLogger.log(context, Const.LOG_WARN, "Failed to send locations: " + response.code() + " " + response.message());
+                RemoteLogger.log(context, Const.LOG_WARN,
+                        "Failed to send locations: " + response.code() + " " + response.message());
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -238,26 +246,27 @@ public class LocationService extends Service {
         }
     }
 
-
     @SuppressLint("WrongConstant")
     private void startAsForeground() {
         NotificationCompat.Builder builder;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Notification Channel", NotificationManager.IMPORTANCE_DEFAULT);
-            NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Notification Channel",
+                    NotificationManager.IMPORTANCE_DEFAULT);
+            NotificationManager notificationManager = (NotificationManager) getSystemService(
+                    Context.NOTIFICATION_SERVICE);
             if (notificationManager != null) {
                 notificationManager.createNotificationChannel(channel);
             }
             builder = new NotificationCompat.Builder(this, CHANNEL_ID);
         } else {
-            builder = new NotificationCompat.Builder( this );
+            builder = new NotificationCompat.Builder(this);
         }
         Notification notification = builder
                 .setContentTitle(ProUtils.getAppName(this))
                 .setTicker(ProUtils.getAppName(this))
-                .setContentText( getString( R.string.location_service_text ) )
-                .setSmallIcon( R.drawable.ic_location_service ).build();
+                .setContentText(getString(R.string.location_service_text))
+                .setSmallIcon(R.drawable.ic_location_service).build();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
@@ -267,12 +276,13 @@ public class LocationService extends Service {
     }
 
     private boolean requestLocationUpdates() {
-        if (updateViaGps && (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED || !locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER))) {
+        if (updateViaGps && (ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                || !locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER))) {
             updateViaGps = false;
         }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // No permission, so give up!
             return false;
         }
@@ -281,16 +291,19 @@ public class LocationService extends Service {
         boolean networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
         boolean passiveEnabled = locationManager.isProviderEnabled(LocationManager.PASSIVE_PROVIDER);
         RemoteLogger.log(this, Const.LOG_VERBOSE,
-                "Request location updates. gps=" + gpsEnabled + ", network=" + networkEnabled + ", passive=" + passiveEnabled);
+                "Request location updates. gps=" + gpsEnabled + ", network=" + networkEnabled + ", passive="
+                        + passiveEnabled);
 
         locationManager.removeUpdates(networkLocationListener);
         locationManager.removeUpdates(gpsLocationListener);
         try {
             if (networkEnabled) {
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_UPDATE_INTERVAL, 0, networkLocationListener);
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, LOCATION_UPDATE_INTERVAL, 0,
+                        networkLocationListener);
             }
-            if (updateViaGps && gpsEnabled) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, LOCATION_UPDATE_INTERVAL, 0, gpsLocationListener);
+            if (gpsEnabled) {
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, LOCATION_UPDATE_INTERVAL, 0,
+                        gpsLocationListener);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && gnssStatusCallback != null) {
                     locationManager.registerGnssStatusCallback(gnssStatusCallback, handler);
                 }
@@ -298,12 +311,12 @@ public class LocationService extends Service {
         } catch (Exception e) {
             // Provider may not exist, so process it friendly
             e.printStackTrace();
+            RemoteLogger.log(this, Const.LOG_WARN, "Failed to request location updates: " + e.getMessage());
             return false;
         }
 
         return true;
     }
-
 
     @Override
     public void onDestroy() {
@@ -318,7 +331,6 @@ public class LocationService extends Service {
 
         super.onDestroy();
     }
-
 
     @Override
     public IBinder onBind(Intent intent) {
