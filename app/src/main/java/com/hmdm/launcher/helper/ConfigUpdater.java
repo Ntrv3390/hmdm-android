@@ -288,8 +288,12 @@ public class ConfigUpdater {
             }
         }
         if (BuildConfig.ENABLE_PUSH && pushOptions != null) {
-            if (pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_WORKER)
-                    || pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_ALARM)) {
+            // Force polling mode (HTTP) regardless of server setting to bypass blocked MQTT port 31000
+            // This ensures updates work even if MQTT connection fails
+            boolean forcePolling = true;
+
+            if (!forcePolling && (pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_WORKER)
+                    || pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_ALARM))) {
                 try {
                     URL url = new URL(settingsHelper.getBaseUrl());
                     Runnable nextRunnable = () -> {

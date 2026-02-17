@@ -22,6 +22,7 @@ package com.hmdm.launcher.ui;
 import android.Manifest;
 import android.app.Dialog;
 import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.ClipData;
@@ -96,6 +97,7 @@ import com.hmdm.launcher.helper.SettingsHelper;
 import com.hmdm.launcher.json.Application;
 import com.hmdm.launcher.json.DeviceInfo;
 import com.hmdm.launcher.json.RemoteFile;
+import com.hmdm.launcher.json.PushMessage;
 import com.hmdm.launcher.json.ServerConfig;
 import com.hmdm.launcher.pro.ProUtils;
 import com.hmdm.launcher.pro.service.CheckForegroundAppAccessibilityService;
@@ -227,6 +229,11 @@ public class MainActivity
                     updateConfig(false);
                     // Force refresh of WorkTime policy
                     com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
+                    // Force UI Refresh explicitly to reflect policy changes immediately
+                    ServerConfig updatedConfig = SettingsHelper.getInstance(MainActivity.this).getConfig();
+                    if (updatedConfig != null) {
+                         showContent(updatedConfig);
+                    }
                     break;
                 case Const.ACTION_HIDE_SCREEN:
                     RemoteLogger.log(MainActivity.this, Const.LOG_DEBUG, "Received ACTION_HIDE_SCREEN for package: " + intent.getStringExtra(Const.PACKAGE_NAME));
@@ -295,6 +302,22 @@ public class MainActivity
                     break;
             }
 
+        }
+    };
+
+    private final BroadcastReceiver pushReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            String configUpdatedAction = Const.INTENT_PUSH_NOTIFICATION_PREFIX + PushMessage.TYPE_CONFIG_UPDATED;
+            if (action != null && action.equals(configUpdatedAction)) {
+                RemoteLogger.log(context, Const.LOG_DEBUG, "Update configuration by Push");
+                com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
+                ServerConfig updatedConfig = settingsHelper.getConfig();
+                if (updatedConfig != null) {
+                    showContent(updatedConfig);
+                }
+            }
         }
     };
 
@@ -389,8 +412,8 @@ public class MainActivity
 
 
         if (BuildConfig.ANR_WATCHDOG) {
-            anrWatchDog = new ANRWatchDog();
-            anrWatchDog.start();
+            // anrWatchDog = new ANRWatchDog();
+            // anrWatchDog.start();
         }
 
         // Prevent showing the lock screen during the app download/installation
@@ -433,6 +456,13 @@ public class MainActivity
                 registerReceiver(screenOffReceiver, intentFilter, Context.RECEIVER_EXPORTED);
             } else {
                 registerReceiver(screenOffReceiver, intentFilter);
+            }
+
+            intentFilter = new IntentFilter(Const.INTENT_PUSH_NOTIFICATION_PREFIX + PushMessage.TYPE_CONFIG_UPDATED);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                registerReceiver(pushReceiver, intentFilter, Context.RECEIVER_EXPORTED);
+            } else {
+                registerReceiver(pushReceiver, intentFilter);
             }
 
             if (!getIntent().getBooleanExtra(Const.RESTORED_ACTIVITY, false)) {
@@ -482,6 +512,21 @@ public class MainActivity
     @Override
     protected void onResume() {
         super.onResume();
+
+        // Workaround for Open Source version: Enable Lock Task mode manually
+        // to emulate Kiosk mode behavior and hide System UI
+        try {
+            DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+            if (dpm.isDeviceOwnerApp(getPackageName())) {
+                ComponentName adminName = new ComponentName(this, AdminReceiver.class);
+                if (!dpm.isLockTaskPermitted(getPackageName())) {
+                    dpm.setLockTaskPackages(adminName, new String[]{getPackageName()});
+                }
+                startLockTask();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         isBackground = false;
 
@@ -2060,6 +2105,10 @@ public class MainActivity
         dismissDialog(systemSettingsDialog);
         dismissDialog(permissionsDialog);
 
+        try {
+            unregisterReceiver(pushReceiver);
+        } catch (Exception e) {}
+
         LocalBroadcastManager.getInstance( this ).sendBroadcast( new Intent( Const.ACTION_SHOW_LAUNCHER ) );
     }
 
@@ -2752,15 +2801,19 @@ public class MainActivity
     // The restarter application will check the launcher version each second, and restart it
     // when it is changed.
     private void startLauncherRestarter() {
-        // Sending an intent before updating, otherwise the launcher may be terminated at any time
-        Intent intent = getPackageManager().getLaunchIntentForPackage(Const.LAUNCHER_RESTARTER_PACKAGE_ID);
-        if (intent == null) {
-            Log.i("LauncherRestarter", "No restarter app, please add it in the config!");
-            return;
-        }
-        intent.putExtra(Const.LAUNCHER_RESTARTER_OLD_VERSION, BuildConfig.VERSION_NAME);
-        startActivity(intent);
-        Log.i("LauncherRestarter", "Calling launcher restarter from the launcher");
+        // Disabled self-restart attempt to avoid crash loop on non-EMUI devices
+        // or when restarter app is missing
+        Log.i("LauncherRestarter", "Launcher restarter is disabled.");
+        return;
+//        // Sending an intent before updating, otherwise the launcher may be terminated at any time
+//        Intent intent = getPackageManager().getLaunchIntentForPackage(Const.LAUNCHER_RESTARTER_PACKAGE_ID);
+//        if (intent == null) {
+//            Log.i("LauncherRestarter", "No restarter app, please add it in the config!");
+//            return;
+//        }
+//        intent.putExtra(Const.LAUNCHER_RESTARTER_OLD_VERSION, BuildConfig.VERSION_NAME);
+//        startActivity(intent);
+//        Log.i("LauncherRestarter", "Calling launcher restarter from the launcher");
     }
 
     // Create a new file from the template file
