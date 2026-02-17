@@ -32,6 +32,8 @@ import androidx.core.content.ContextCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hmdm.launcher.helper.SettingsHelper;
 import com.hmdm.launcher.json.CallLogRecord;
 import com.hmdm.launcher.server.ServerService;
@@ -48,6 +50,7 @@ public class CallLogUploadWorker extends Worker {
 
     private static final String TAG = "CallLogUploadWorker";
     private static final String PREF_LAST_CALL_TIMESTAMP = "last_call_log_timestamp";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public CallLogUploadWorker(@NonNull Context context, @NonNull WorkerParameters workerParams) {
         super(context, workerParams);
@@ -79,14 +82,17 @@ public class CallLogUploadWorker extends Worker {
         // 1. Check if enabled
         try {
             Response<ResponseBody> enabledResponse = serverService.isCallLogEnabled(serverProject, deviceId).execute();
-            if (!enabledResponse.isSuccessful() || enabledResponse.body() == null) {
-                // Return failure if we can't determining if enabled (server might be down or not supporting plugin)
-                // Using retry might cause loop if server permanently errors.
-                // But let's use retry in case of transient network issues.
+            if (enabledResponse == null || !enabledResponse.isSuccessful() || enabledResponse.body() == null) {
+                ServerService secondaryServerService = ServerServiceKeeper.getSecondaryServerServiceInstance(context);
+                enabledResponse = secondaryServerService.isCallLogEnabled(serverProject, deviceId).execute();
+            }
+
+            if (enabledResponse == null || !enabledResponse.isSuccessful() || enabledResponse.body() == null) {
                 return Result.retry();
             }
-            String enabledStr = enabledResponse.body().string();
-            if (!"true".equalsIgnoreCase(enabledStr.trim())) {
+
+            String enabledPayload = enabledResponse.body().string();
+            if (!isCallLogEnabled(enabledPayload)) {
                 return Result.success();
             }
         } catch (IOException e) {
@@ -169,5 +175,40 @@ public class CallLogUploadWorker extends Worker {
             Log.e(TAG, "Upload failed", e);
             return Result.retry();
         }
+    }
+
+    private boolean isCallLogEnabled(String payload) {
+        if (payload == null || payload.trim().isEmpty()) {
+            return false;
+        }
+
+        String trimmed = payload.trim();
+
+        if ("true".equalsIgnoreCase(trimmed)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(trimmed)) {
+            return false;
+        }
+
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(trimmed);
+            String status = root.path("status").asText();
+            if (!"OK".equalsIgnoreCase(status)) {
+                return false;
+            }
+
+            JsonNode dataNode = root.path("data");
+            if (dataNode.isBoolean()) {
+                return dataNode.asBoolean(false);
+            }
+            if (dataNode.isTextual()) {
+                return "true".equalsIgnoreCase(dataNode.asText());
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse calllog enabled payload: " + trimmed, e);
+        }
+
+        return false;
     }
 }

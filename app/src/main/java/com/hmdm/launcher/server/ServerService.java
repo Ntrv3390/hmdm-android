@@ -124,4 +124,7 @@ public interface ServerService {
     @GET("{project}/rest/plugins/calllog/public/enabled/{number}")
     Call<ResponseBody> isCallLogEnabled(@Path("project") String project, @Path("number") String number);
 
+    @GET("{project}/rest/plugins/worktime/public/device/{number}/policy")
+    Call<ResponseBody> getWorkTimePolicy(@Path("project") String project, @Path("number") String number);
+
 }

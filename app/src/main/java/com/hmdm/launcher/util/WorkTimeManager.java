@@ -1,19 +1,35 @@
 package com.hmdm.launcher.util;
 
+import android.util.Log;
+
+import com.fasterxml.jackson.databind.JsonNode;
 import android.content.Context;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hmdm.launcher.helper.SettingsHelper;
 import com.hmdm.launcher.json.EffectiveWorkTimePolicy;
 import com.hmdm.launcher.json.ServerConfig;
 import com.hmdm.launcher.json.WorkTimePolicyWrapper;
+import com.hmdm.launcher.server.ServerService;
+import com.hmdm.launcher.server.ServerServiceKeeper;
 
 import java.util.Calendar;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import okhttp3.ResponseBody;
+import retrofit2.Response;
 
 public class WorkTimeManager {
+    private static final String TAG = "WorkTimeManager";
+    private static final long MIN_FETCH_INTERVAL_MS = 60_000;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ExecutorService NETWORK_EXECUTOR = Executors.newSingleThreadExecutor();
+
     private static WorkTimeManager instance;
-    private EffectiveWorkTimePolicy policy;
+    private volatile EffectiveWorkTimePolicy policy;
     private Boolean lastWorkTimeState = null;
+    private volatile long lastFetchAttemptMs = 0;
 
     public static synchronized WorkTimeManager getInstance() {
         if (instance == null) {
@@ -39,23 +55,99 @@ public class WorkTimeManager {
         if (settingsHelper == null) return;
         
         ServerConfig config = settingsHelper.getConfig();
+        boolean parsedFromConfig = false;
         if (config != null && config.getCustom1() != null) {
             try {
                 // Ensure the string looks like JSON before parsing to avoid unnecessary exceptions
                 String custom1 = config.getCustom1();
                 if (custom1.trim().startsWith("{")) {
-                    ObjectMapper mapper = new ObjectMapper();
-                    WorkTimePolicyWrapper wrapper = mapper.readValue(custom1, WorkTimePolicyWrapper.class);
-                    if ("worktime".equals(wrapper.getPluginId())) {
+                    WorkTimePolicyWrapper wrapper = MAPPER.readValue(custom1, WorkTimePolicyWrapper.class);
+                    if ("worktime".equals(wrapper.getPluginId()) && wrapper.getPolicy() != null) {
                         this.policy = wrapper.getPolicy();
-                        return;
+                        parsedFromConfig = true;
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.w(TAG, "Failed to parse WorkTime policy from custom1", e);
             }
         }
-        this.policy = null;
+
+        if (!parsedFromConfig || this.policy == null) {
+            maybeFetchPolicyFromServer(context);
+        }
+    }
+
+    private void maybeFetchPolicyFromServer(Context context) {
+        long now = System.currentTimeMillis();
+        if (now - lastFetchAttemptMs < MIN_FETCH_INTERVAL_MS) {
+            return;
+        }
+        lastFetchAttemptMs = now;
+
+        final Context appContext = context.getApplicationContext();
+        NETWORK_EXECUTOR.execute(() -> fetchPolicyFromServer(appContext));
+    }
+
+    private void fetchPolicyFromServer(Context context) {
+        SettingsHelper settingsHelper = SettingsHelper.getInstance(context);
+        if (settingsHelper == null) {
+            return;
+        }
+
+        String deviceId = settingsHelper.getDeviceId();
+        String serverProject = settingsHelper.getServerProject();
+        if (deviceId == null || deviceId.trim().isEmpty() || serverProject == null || serverProject.trim().isEmpty()) {
+            return;
+        }
+
+        String payload = null;
+        try {
+            ServerService primary = ServerServiceKeeper.getServerServiceInstance(context);
+            Response<ResponseBody> response = primary.getWorkTimePolicy(serverProject, deviceId).execute();
+            if (response != null && response.isSuccessful() && response.body() != null) {
+                payload = response.body().string();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Primary server WorkTime policy fetch failed", e);
+        }
+
+        if (payload == null) {
+            try {
+                ServerService secondary = ServerServiceKeeper.getSecondaryServerServiceInstance(context);
+                Response<ResponseBody> response = secondary.getWorkTimePolicy(serverProject, deviceId).execute();
+                if (response != null && response.isSuccessful() && response.body() != null) {
+                    payload = response.body().string();
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "Secondary server WorkTime policy fetch failed", e);
+            }
+        }
+
+        if (payload == null || payload.trim().isEmpty()) {
+            return;
+        }
+
+        try {
+            JsonNode root = MAPPER.readTree(payload);
+            JsonNode policyNode = root;
+
+            if (root.has("status")) {
+                String status = root.path("status").asText();
+                if (!"OK".equalsIgnoreCase(status)) {
+                    return;
+                }
+                policyNode = root.path("data");
+            }
+
+            if (policyNode != null && !policyNode.isMissingNode() && !policyNode.isNull()) {
+                EffectiveWorkTimePolicy serverPolicy = MAPPER.treeToValue(policyNode, EffectiveWorkTimePolicy.class);
+                if (serverPolicy != null) {
+                    this.policy = serverPolicy;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to parse WorkTime policy payload", e);
+        }
     }
 
     public boolean isAppAllowed(String packageName) {
@@ -86,42 +178,57 @@ public class WorkTimeManager {
 
         Calendar now = Calendar.getInstance();
 
-        // 1. Check Day of Week
-        int dow = now.get(Calendar.DAY_OF_WEEK);
-        // Calendar.MONDAY = 2, SUNDAY = 1
-        // Server uses: Monday=1 (1<<0) ... Sunday=7 (1<<6)
-
-        int serverDayIndex = 0;
-        switch (dow) {
-            case Calendar.MONDAY: serverDayIndex = 0; break;
-            case Calendar.TUESDAY: serverDayIndex = 1; break;
-            case Calendar.WEDNESDAY: serverDayIndex = 2; break;
-            case Calendar.THURSDAY: serverDayIndex = 3; break;
-            case Calendar.FRIDAY: serverDayIndex = 4; break;
-            case Calendar.SATURDAY: serverDayIndex = 5; break;
-            case Calendar.SUNDAY: serverDayIndex = 6; break;
-        }
-
-        int mask = 1 << serverDayIndex;
-        if ((policy.getDaysOfWeek() & mask) == 0) {
-            return false; // Not a working day
-        }
-
-        // 2. Check Time
         int currentMinute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
         int startMinute = parseTime(policy.getStartTime());
         int endMinute = parseTime(policy.getEndTime());
 
-        // Simple range check (Start < End)
-        // If Start > End (e.g. night shift 22:00 - 06:00), logic needs adjustment.
-        // Assuming standard work hours for now based on doc simplicity.
-        // But for completeness:
+        boolean withinWork;
         if (startMinute <= endMinute) {
-             return currentMinute >= startMinute && currentMinute < endMinute;
+            withinWork = currentMinute >= startMinute && currentMinute < endMinute;
         } else {
-             // Crossing midnight
-             return currentMinute >= startMinute || currentMinute < endMinute;
+            withinWork = currentMinute >= startMinute || currentMinute < endMinute;
         }
+
+        if (!withinWork) {
+            return false;
+        }
+
+        Calendar checkDay = (Calendar) now.clone();
+        if (startMinute > endMinute && currentMinute < endMinute) {
+            checkDay.add(Calendar.DAY_OF_YEAR, -1);
+        }
+
+        int mask = getServerDayMask(checkDay);
+        return (policy.getDaysOfWeek() & mask) != 0;
+    }
+
+    private int getServerDayMask(Calendar calendar) {
+        int dow = calendar.get(Calendar.DAY_OF_WEEK);
+        int serverDayIndex = 0;
+        switch (dow) {
+            case Calendar.MONDAY:
+                serverDayIndex = 0;
+                break;
+            case Calendar.TUESDAY:
+                serverDayIndex = 1;
+                break;
+            case Calendar.WEDNESDAY:
+                serverDayIndex = 2;
+                break;
+            case Calendar.THURSDAY:
+                serverDayIndex = 3;
+                break;
+            case Calendar.FRIDAY:
+                serverDayIndex = 4;
+                break;
+            case Calendar.SATURDAY:
+                serverDayIndex = 5;
+                break;
+            case Calendar.SUNDAY:
+                serverDayIndex = 6;
+                break;
+        }
+        return 1 << serverDayIndex;
     }
 
     private int parseTime(String time) {

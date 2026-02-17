@@ -17,6 +17,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.hmdm.launcher.BuildConfig;
@@ -272,6 +273,13 @@ public class BaseAppListAdapter extends RecyclerView.Adapter<BaseAppListAdapter.
     protected void chooseApp(AppInfo appInfo) {
         switch (appInfo.type) {
             case AppInfo.TYPE_APP:
+                if (appInfo.packageName != null &&
+                        !com.hmdm.launcher.util.WorkTimeManager.getInstance().isAppAllowed(appInfo.packageName)) {
+                    Intent denyIntent = new Intent(Const.ACTION_HIDE_SCREEN);
+                    denyIntent.putExtra(Const.PACKAGE_NAME, appInfo.packageName);
+                    LocalBroadcastManager.getInstance(parentActivity).sendBroadcast(denyIntent);
+                    return;
+                }
                 Intent launchIntent = parentActivity.getPackageManager().getLaunchIntentForPackage(
                         appInfo.packageName);
                 if (launchIntent != null) {
