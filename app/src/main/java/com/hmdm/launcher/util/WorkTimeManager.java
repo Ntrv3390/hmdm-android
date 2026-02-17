@@ -51,6 +51,10 @@ public class WorkTimeManager {
     }
 
     public void updatePolicy(Context context) {
+        updatePolicy(context, false);
+    }
+
+    public void updatePolicy(Context context, boolean forceRefresh) {
         SettingsHelper settingsHelper = SettingsHelper.getInstance(context);
         if (settingsHelper == null) return;
         
@@ -72,14 +76,14 @@ public class WorkTimeManager {
             }
         }
 
-        if (!parsedFromConfig || this.policy == null) {
-            maybeFetchPolicyFromServer(context);
+        if (!parsedFromConfig || this.policy == null || forceRefresh) {
+            maybeFetchPolicyFromServer(context, forceRefresh);
         }
     }
 
-    private void maybeFetchPolicyFromServer(Context context) {
+    private void maybeFetchPolicyFromServer(Context context, boolean forceRefresh) {
         long now = System.currentTimeMillis();
-        if (now - lastFetchAttemptMs < MIN_FETCH_INTERVAL_MS) {
+        if (!forceRefresh && now - lastFetchAttemptMs < MIN_FETCH_INTERVAL_MS) {
             return;
         }
         lastFetchAttemptMs = now;

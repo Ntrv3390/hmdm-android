@@ -158,7 +158,7 @@ public class ConfigUpdater {
                     case Const.TASK_SUCCESS:
                         RemoteLogger.log(context, Const.LOG_INFO, "Configuration updated");
                         // Refresh WorkTime policy
-                        com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
+                        com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context, true);
                         updateRemoteLogConfig();
                         break;
                     case Const.TASK_ERROR:

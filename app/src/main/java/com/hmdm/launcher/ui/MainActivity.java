@@ -228,7 +228,7 @@ public class MainActivity
                     RemoteLogger.log(context, Const.LOG_DEBUG, "Update configuration by MainActivity");
                     updateConfig(false);
                     // Force refresh of WorkTime policy
-                    com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
+                    com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context, true);
                     // Force UI Refresh explicitly to reflect policy changes immediately
                     ServerConfig updatedConfig = SettingsHelper.getInstance(MainActivity.this).getConfig();
                     if (updatedConfig != null) {
@@ -312,7 +312,7 @@ public class MainActivity
             String configUpdatedAction = Const.INTENT_PUSH_NOTIFICATION_PREFIX + PushMessage.TYPE_CONFIG_UPDATED;
             if (action != null && action.equals(configUpdatedAction)) {
                 RemoteLogger.log(context, Const.LOG_DEBUG, "Update configuration by Push");
-                com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
+                com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context, true);
                 ServerConfig updatedConfig = settingsHelper.getConfig();
                 if (updatedConfig != null) {
                     showContent(updatedConfig);
@@ -513,19 +513,21 @@ public class MainActivity
     protected void onResume() {
         super.onResume();
 
-        // Workaround for Open Source version: Enable Lock Task mode manually
-        // to emulate Kiosk mode behavior and hide System UI
-        try {
-            DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
-            if (dpm.isDeviceOwnerApp(getPackageName())) {
-                ComponentName adminName = new ComponentName(this, AdminReceiver.class);
-                if (!dpm.isLockTaskPermitted(getPackageName())) {
-                    dpm.setLockTaskPackages(adminName, new String[]{getPackageName()});
+        // Enable Lock Task manually only when explicitly requested by build config.
+        // Otherwise app launches are controlled by policies (e.g. WorkTime), not forced lock-task restrictions.
+        if (BuildConfig.ENABLE_KIOSK_WITHOUT_OVERLAYS) {
+            try {
+                DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+                if (dpm.isDeviceOwnerApp(getPackageName())) {
+                    ComponentName adminName = new ComponentName(this, AdminReceiver.class);
+                    if (!dpm.isLockTaskPermitted(getPackageName())) {
+                        dpm.setLockTaskPackages(adminName, new String[]{getPackageName()});
+                    }
+                    startLockTask();
                 }
-                startLockTask();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         isBackground = false;
