@@ -288,39 +288,52 @@ public class ConfigUpdater {
             }
         }
         if (BuildConfig.ENABLE_PUSH && pushOptions != null) {
-            // Force polling mode (HTTP) regardless of server setting to bypass blocked MQTT port 31000
-            // This ensures updates work even if MQTT connection fails
-            boolean forcePolling = true;
-
-            if (!forcePolling && (pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_WORKER)
-                    || pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_ALARM))) {
+                if (pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_WORKER)
+                    || pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_ALARM)) {
                 try {
                     URL url = new URL(settingsHelper.getBaseUrl());
-                    Runnable nextRunnable = () -> {
+                    Runnable onMqttConnected = () -> {
+                        stopLongPollingService();
+                        checkFactoryReset();
+                    };
+                    Runnable onMqttFailure = () -> {
+                        startLongPollingService();
                         checkFactoryReset();
                     };
                     PushNotificationMqttWrapper.getInstance().connect(context, url.getHost(), BuildConfig.MQTT_PORT,
-                            pushOptions, keepaliveTime, settingsHelper.getDeviceId(), nextRunnable, nextRunnable);
+                            pushOptions, keepaliveTime, settingsHelper.getDeviceId(), onMqttConnected, onMqttFailure);
                 } catch (Exception e) {
                     e.printStackTrace();
+                    startLongPollingService();
                     checkFactoryReset();
                 }
             } else {
-                try {
-                    Intent serviceStartIntent = new Intent(context, PushLongPollingService.class);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(serviceStartIntent);
-                    } else {
-                        context.startService(serviceStartIntent);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-
+                startLongPollingService();
                 checkFactoryReset();
             }
         } else {
             checkFactoryReset();
+        }
+    }
+
+    private void startLongPollingService() {
+        try {
+            Intent serviceStartIntent = new Intent(context, PushLongPollingService.class);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceStartIntent);
+            } else {
+                context.startService(serviceStartIntent);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void stopLongPollingService() {
+        try {
+            context.stopService(new Intent(context, PushLongPollingService.class));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

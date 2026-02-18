@@ -1,6 +1,9 @@
 package com.hmdm.launcher.util;
 
 import android.util.Log;
+import android.content.Intent;
+
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import android.content.Context;
@@ -16,15 +19,20 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.ResponseBody;
 import retrofit2.Response;
 
 public class WorkTimeManager {
     private static final String TAG = "WorkTimeManager";
+    public static final String ACTION_WORKTIME_POLICY_UPDATED = "com.hmdm.launcher.action.WORKTIME_POLICY_UPDATED";
     private static final long MIN_FETCH_INTERVAL_MS = 60_000;
+    private static final long FORCE_REFRESH_RETRY_DELAY_MS = 3_000;
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final ExecutorService NETWORK_EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final ScheduledExecutorService RETRY_EXECUTOR = Executors.newSingleThreadScheduledExecutor();
 
     private static WorkTimeManager instance;
     private volatile EffectiveWorkTimePolicy policy;
@@ -39,9 +47,18 @@ public class WorkTimeManager {
     }
     
     public boolean shouldRefreshUI() {
-        if (policy == null || !policy.isEnforcementEnabled()) {
+        if (policy == null) {
             return false;
         }
+
+        if (!isEnforcementActiveNow()) {
+            if (lastWorkTimeState == null || lastWorkTimeState) {
+                lastWorkTimeState = false;
+                return true;
+            }
+            return false;
+        }
+
         boolean currentWorkTimeState = isCurrentTimeWorkTime();
         if (lastWorkTimeState == null || lastWorkTimeState != currentWorkTimeState) {
             lastWorkTimeState = currentWorkTimeState;
@@ -69,6 +86,7 @@ public class WorkTimeManager {
                     if ("worktime".equals(wrapper.getPluginId()) && wrapper.getPolicy() != null) {
                         this.policy = wrapper.getPolicy();
                         parsedFromConfig = true;
+                        notifyPolicyUpdated(context);
                     }
                 }
             } catch (Exception e) {
@@ -90,6 +108,14 @@ public class WorkTimeManager {
 
         final Context appContext = context.getApplicationContext();
         NETWORK_EXECUTOR.execute(() -> fetchPolicyFromServer(appContext));
+
+        if (forceRefresh) {
+            RETRY_EXECUTOR.schedule(
+                    () -> NETWORK_EXECUTOR.execute(() -> fetchPolicyFromServer(appContext)),
+                    FORCE_REFRESH_RETRY_DELAY_MS,
+                    TimeUnit.MILLISECONDS
+            );
+        }
     }
 
     private void fetchPolicyFromServer(Context context) {
@@ -147,6 +173,7 @@ public class WorkTimeManager {
                 EffectiveWorkTimePolicy serverPolicy = MAPPER.treeToValue(policyNode, EffectiveWorkTimePolicy.class);
                 if (serverPolicy != null) {
                     this.policy = serverPolicy;
+                    notifyPolicyUpdated(context);
                 }
             }
         } catch (Exception e) {
@@ -154,8 +181,17 @@ public class WorkTimeManager {
         }
     }
 
+    private void notifyPolicyUpdated(Context context) {
+        try {
+            LocalBroadcastManager.getInstance(context.getApplicationContext())
+                    .sendBroadcast(new Intent(ACTION_WORKTIME_POLICY_UPDATED));
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to notify policy update", e);
+        }
+    }
+
     public boolean isAppAllowed(String packageName) {
-        if (policy == null || !policy.isEnforcementEnabled()) {
+        if (policy == null || !isEnforcementActiveNow()) {
             return true;
         }
 
@@ -204,6 +240,28 @@ public class WorkTimeManager {
 
         int mask = getServerDayMask(checkDay);
         return (policy.getDaysOfWeek() & mask) != 0;
+    }
+
+    private boolean isEnforcementActiveNow() {
+        if (policy == null || !policy.isEnforcementEnabled()) {
+            return false;
+        }
+        return !isExceptionActiveNow();
+    }
+
+    private boolean isExceptionActiveNow() {
+        if (policy == null) {
+            return false;
+        }
+
+        Long exceptionStart = policy.getExceptionStartDateTime();
+        Long exceptionEnd = policy.getExceptionEndDateTime();
+        if (exceptionStart == null || exceptionEnd == null) {
+            return false;
+        }
+
+        long now = System.currentTimeMillis();
+        return now >= exceptionStart && now <= exceptionEnd;
     }
 
     private int getServerDayMask(Calendar calendar) {

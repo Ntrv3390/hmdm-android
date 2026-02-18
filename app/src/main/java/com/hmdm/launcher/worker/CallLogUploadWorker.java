@@ -158,7 +158,12 @@ public class CallLogUploadWorker extends Worker {
             }
         }
 
+        Log.i(TAG, "Call log scan complete: newRows=" + records.size() +
+                ", sinceTimestamp=" + lastTimestamp +
+                ", maxTimestamp=" + maxTimestamp);
+
         if (records.isEmpty()) {
+            Log.i(TAG, "No new call log records to upload");
             return Result.success();
         }
 
@@ -167,8 +172,10 @@ public class CallLogUploadWorker extends Worker {
             Response<ResponseBody> response = serverService.uploadCallLogs(serverProject, deviceId, records).execute();
             if (response.isSuccessful()) {
                 prefs.edit().putLong(PREF_LAST_CALL_TIMESTAMP, maxTimestamp).apply();
+                Log.i(TAG, "Uploaded " + records.size() + " call log records successfully");
                 return Result.success();
             } else {
+                Log.w(TAG, "Call log upload failed, HTTP status=" + response.code());
                 return Result.retry();
             }
         } catch (IOException e) {

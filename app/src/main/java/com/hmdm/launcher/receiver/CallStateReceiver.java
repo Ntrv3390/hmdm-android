@@ -23,6 +23,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
@@ -32,6 +33,7 @@ import com.hmdm.launcher.worker.CallLogUploadWorker;
 import java.util.concurrent.TimeUnit;
 
 public class CallStateReceiver extends BroadcastReceiver {
+    private static final String TAG = "CallStateReceiver";
     private static int lastState = TelephonyManager.CALL_STATE_IDLE;
 
     @Override
@@ -50,9 +52,11 @@ public class CallStateReceiver extends BroadcastReceiver {
     }
 
     private void onCallStateChanged(Context context, int state) {
+        Log.d(TAG, "Phone state changed: " + lastState + " -> " + state);
         if ((lastState == TelephonyManager.CALL_STATE_OFFHOOK || lastState == TelephonyManager.CALL_STATE_RINGING)
                 && state == TelephonyManager.CALL_STATE_IDLE) {
             // Call ended or missed call
+            Log.i(TAG, "Call end/miss detected, scheduling call log upload");
             scheduleUpload(context);
         }
         lastState = state;

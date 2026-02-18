@@ -355,7 +355,12 @@ public class LocationService extends Service {
         } else {
             updateViaGps = false;
         }
-        if (!started || legacyGpsFlag != updateViaGps) {
+        boolean needRequestUpdates = !started || legacyGpsFlag != updateViaGps;
+        if (!started) {
+            startAsForeground();
+            started = true;
+        }
+        if (needRequestUpdates) {
             if (!requestLocationUpdates()) {
                 // No permissions!
                 started = false;
@@ -363,10 +368,6 @@ public class LocationService extends Service {
                 stopSelf();
                 return Service.START_NOT_STICKY;
             }
-        }
-        if (!started) {
-            startAsForeground();
-            started = true;
         }
         return START_STICKY;
     }

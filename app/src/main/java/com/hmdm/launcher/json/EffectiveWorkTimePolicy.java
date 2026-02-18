@@ -11,6 +11,8 @@ public class EffectiveWorkTimePolicy {
     private int daysOfWeek; // bitmask 1..64
     private List<String> allowedDuring;
     private List<String> allowedOutside;
+    private Long exceptionStartDateTime;
+    private Long exceptionEndDateTime;
 
     public boolean isEnforcementEnabled() {
         return enforcementEnabled;
@@ -58,5 +60,21 @@ public class EffectiveWorkTimePolicy {
 
     public void setAllowedOutside(List<String> allowedOutside) {
         this.allowedOutside = allowedOutside;
+    }
+
+    public Long getExceptionStartDateTime() {
+        return exceptionStartDateTime;
+    }
+
+    public void setExceptionStartDateTime(Long exceptionStartDateTime) {
+        this.exceptionStartDateTime = exceptionStartDateTime;
+    }
+
+    public Long getExceptionEndDateTime() {
+        return exceptionEndDateTime;
+    }
+
+    public void setExceptionEndDateTime(Long exceptionEndDateTime) {
+        this.exceptionEndDateTime = exceptionEndDateTime;
     }
 }

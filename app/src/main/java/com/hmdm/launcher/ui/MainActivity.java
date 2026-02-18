@@ -300,6 +300,13 @@ public class MainActivity
                 case Const.ACTION_ADMIN_PANEL:
                     openAdminPanel();
                     break;
+
+                case com.hmdm.launcher.util.WorkTimeManager.ACTION_WORKTIME_POLICY_UPDATED:
+                    ServerConfig cfg = settingsHelper != null ? settingsHelper.getConfig() : null;
+                    if (cfg != null) {
+                        showContent(cfg);
+                    }
+                    break;
             }
 
         }
@@ -506,29 +513,13 @@ public class MainActivity
         intentFilter.addAction(Const.ACTION_POLICY_VIOLATION);
         intentFilter.addAction(Const.ACTION_EXIT_KIOSK);
         intentFilter.addAction(Const.ACTION_ADMIN_PANEL);
+        intentFilter.addAction(com.hmdm.launcher.util.WorkTimeManager.ACTION_WORKTIME_POLICY_UPDATED);
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, intentFilter);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
-        // Enable Lock Task manually only when explicitly requested by build config.
-        // Otherwise app launches are controlled by policies (e.g. WorkTime), not forced lock-task restrictions.
-        if (BuildConfig.ENABLE_KIOSK_WITHOUT_OVERLAYS) {
-            try {
-                DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
-                if (dpm.isDeviceOwnerApp(getPackageName())) {
-                    ComponentName adminName = new ComponentName(this, AdminReceiver.class);
-                    if (!dpm.isLockTaskPermitted(getPackageName())) {
-                        dpm.setLockTaskPackages(adminName, new String[]{getPackageName()});
-                    }
-                    startLockTask();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
 
         isBackground = false;
 
