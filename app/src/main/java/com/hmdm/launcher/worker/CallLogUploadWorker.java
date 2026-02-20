@@ -92,7 +92,13 @@ public class CallLogUploadWorker extends Worker {
             }
 
             String enabledPayload = enabledResponse.body().string();
-            if (!isCallLogEnabled(enabledPayload)) {
+            Boolean enabled = parseCallLogEnabled(enabledPayload);
+            if (enabled == null) {
+                Log.w(TAG, "Call log enabled endpoint returned invalid payload, scheduling retry");
+                return Result.retry();
+            }
+
+            if (!enabled) {
                 return Result.success();
             }
         } catch (IOException e) {
@@ -184,25 +190,25 @@ public class CallLogUploadWorker extends Worker {
         }
     }
 
-    private boolean isCallLogEnabled(String payload) {
+    private Boolean parseCallLogEnabled(String payload) {
         if (payload == null || payload.trim().isEmpty()) {
-            return false;
+            return null;
         }
 
         String trimmed = payload.trim();
 
         if ("true".equalsIgnoreCase(trimmed)) {
-            return true;
+            return Boolean.TRUE;
         }
         if ("false".equalsIgnoreCase(trimmed)) {
-            return false;
+            return Boolean.FALSE;
         }
 
         try {
             JsonNode root = OBJECT_MAPPER.readTree(trimmed);
             String status = root.path("status").asText();
             if (!"OK".equalsIgnoreCase(status)) {
-                return false;
+                return null;
             }
 
             JsonNode dataNode = root.path("data");
@@ -214,8 +220,9 @@ public class CallLogUploadWorker extends Worker {
             }
         } catch (Exception e) {
             Log.w(TAG, "Failed to parse calllog enabled payload: " + trimmed, e);
+            return null;
         }
 
-        return false;
+        return null;
     }
 }
