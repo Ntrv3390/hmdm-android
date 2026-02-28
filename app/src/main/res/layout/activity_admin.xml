@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Headwind MDM: Open Source Android MDM Software
+  ~ Brother Pharmach MDM: Open Source Android MDM Software
   ~ https://h-mdm.com
   ~
   ~ Copyright (C) 2019 Headwind Solutions LLC (http://h-sms.com)
@@ -27,7 +27,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        tools:context="com.hmdm.launcher.ui.AdminActivity"
+        tools:context="com.brother.pharmach.mdm.launcher.ui.AdminActivity"
         android:gravity="center_horizontal">
 
         <androidx.appcompat.widget.Toolbar

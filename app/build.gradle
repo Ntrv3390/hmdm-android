@@ -1,5 +1,5 @@
 /*
- * Headwind MDM: Open Source Android MDM Software
+ * Brother Pharmach MDM: Open Source Android MDM Software
  * https://h-mdm.com
  *
  * Copyright (C) 2019 Headwind Solutions LLC (http://h-sms.com)
@@ -32,7 +32,7 @@ repositories {
 android {
     compileSdkVersion 34
     defaultConfig {
-        applicationId "com.hmdm.launcher"
+        applicationId "com.brother.pharmach.mdm.launcher"
         minSdkVersion 16
         targetSdkVersion 34
         versionCode 15310
@@ -45,7 +45,7 @@ android {
             aidl true
             buildConfig = true
         }
-        namespace 'com.hmdm.launcher'
+        namespace 'com.brother.pharmach.mdm.launcher'
         multiDexEnabled true
 
         // Default URL of the web panel (scheme + host!)
@@ -64,7 +64,7 @@ android {
         buildConfigField("Boolean", "ENABLE_PUSH", "true")
         // MQTT port for Push notifications
         buildConfigField("Integer", "MQTT_PORT", "31000")
-        // Set this parameter to true if you'll grant system privileges to Headwind MDM (signing it by system keys).
+        // Set this parameter to true if you'll grant system privileges to Brother Pharmach MDM (signing it by system keys).
         // This will enable silent installation and the launcher will try to get the device owner rights by updating system files.
         // This may be useful, for example, when your device doesn't have QR code provisioning capability.
         buildConfigField("Boolean", "SYSTEM_PRIVILEGES", "false")
@@ -88,8 +88,8 @@ android {
         buildConfigField("Boolean", "ENABLE_KIOSK_WITHOUT_OVERLAYS", "false")
         // Foreground service for MQTT: prevents OS from killing MQTT service on weak devices
         buildConfigField("Boolean", "MQTT_SERVICE_FOREGROUND", "true")
-        // Set Headwind MDM to default launcher at early time of the first start
-        // to prevent the user from clicking Home and stop initializing Headwind MDM
+        // Set Brother Pharmach MDM to default launcher at early time of the first start
+        // to prevent the user from clicking Home and stop initializing Brother Pharmach MDM
         buildConfigField("Boolean", "SET_DEFAULT_LAUNCHER_EARLY", "false")
         // Adjust application selection on TV boxes
         buildConfigField("Boolean", "SELECTED_ITEM_BY_CLICK", "false")

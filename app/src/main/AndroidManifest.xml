@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ~ Headwind MDM: Open Source Android MDM Software
+  ~ Brother Pharmach MDM: Open Source Android MDM Software
   ~ https://h-mdm.com
   ~
   ~ Copyright (C) 2019 Headwind Solutions LLC (http://h-sms.com)
@@ -21,7 +21,7 @@
 <!-- -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:sharedUserId="com.hmdm">
+    android:sharedUserId="com.brother.pharmach.mdm">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
@@ -33,7 +33,7 @@
     <uses-permission android:name="android.permission.READ_CALL_LOG"/>
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
 <!-- This permission is dangerous and causes blocking by Play Protect in some countries.
-     In fact, this permission is currently never used by Headwind MDM.
+     In fact, this permission is currently never used by Brother Pharmach MDM.
  -->
 <!--    <uses-permission android:name="android.permission.READ_SMS"/>-->
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS"/>
@@ -91,7 +91,7 @@
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_MOBILE_NETWORK" />
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_MODIFY_USERS" />
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_NEARBY_COMMUNICATION" />
-    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_OVERRIDE_APN" />  <!-- for com.hmdm.apn plugin -->
+    <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_OVERRIDE_APN" />  <!-- for com.brother.pharmach.mdm.apn plugin -->
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_PHYSICAL_MEDIA" />
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_PRINTING" />
     <uses-permission android:name="android.permission.MANAGE_DEVICE_POLICY_RESET_PASSWORD" />
@@ -188,7 +188,7 @@
             android:exported="false"/>
 
         <receiver
-            android:name="com.hmdm.launcher.AdminReceiver"
+            android:name="com.brother.pharmach.mdm.launcher.AdminReceiver"
             android:label="@string/white_app_name"
             android:exported="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
@@ -202,14 +202,14 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name="com.hmdm.launcher.receiver.SimChangedReceiver"
+        <receiver android:name="com.brother.pharmach.mdm.launcher.receiver.SimChangedReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.SIM_STATE_CHANGED"/>
             </intent-filter>
         </receiver>
 
-        <receiver android:name="com.hmdm.launcher.receiver.ShutdownReceiver"
+        <receiver android:name="com.brother.pharmach.mdm.launcher.receiver.ShutdownReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.ACTION_SHUTDOWN" />
@@ -218,7 +218,7 @@
         </receiver>
 
         <receiver
-            android:name="com.hmdm.launcher.receiver.BootReceiver"
+            android:name="com.brother.pharmach.mdm.launcher.receiver.BootReceiver"
             android:label="BootReceiver"
             android:enabled="true"
             android:exported="true">
@@ -231,7 +231,7 @@
             </intent-filter>
         </receiver>
 
-        <receiver android:name="com.hmdm.launcher.receiver.CallStateReceiver"
+        <receiver android:name="com.brother.pharmach.mdm.launcher.receiver.CallStateReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PHONE_STATE"/>
@@ -253,7 +253,7 @@
 
         <service android:name=".service.PluginApiService" android:enabled="true" android:exported="true">
             <intent-filter>
-                <action android:name="com.hmdm.action.Connect" />
+                <action android:name="com.brother.pharmach.mdm.action.Connect" />
             </intent-filter>
         </service>
 
