@@ -62,22 +62,39 @@ public class ConfigUpdater {
 
     public static interface UINotifier {
         void onConfigUpdateStart();
+
         void onConfigUpdateServerError(String errorText);
+
         void onConfigUpdateNetworkError(String errorText);
+
         void onConfigLoaded();
+
         void onPoliciesUpdated();
+
         void onFileDownloading(final RemoteFile remoteFile);
+
         void onDownloadProgress(final int progress, final long total, final long current);
+
         void onFileDownloadError(final RemoteFile remoteFile);
+
         void onFileInstallError(final RemoteFile remoteFile);
+
         void onAppUpdateStart();
+
         void onAppRemoving(final Application application);
+
         void onAppDownloading(final Application application);
+
         void onAppInstalling(final Application application);
+
         void onAppDownloadError(final Application application, String error);
+
         void onAppInstallError(final String packageName);
+
         void onAppInstallComplete(final String packageName);
+
         void onConfigUpdateComplete();
+
         void onAllAppInstallComplete();
     };
 
@@ -87,9 +104,9 @@ public class ConfigUpdater {
     private SettingsHelper settingsHelper;
     private Handler handler = new Handler(Looper.getMainLooper());
     private List<RemoteFile> filesForInstall = new LinkedList();
-    private List< Application > applicationsForInstall = new LinkedList();
-    private List< Application > applicationsForRun = new LinkedList();
-    private Map<String, File> pendingInstallations = new HashMap<String,File>();
+    private List<Application> applicationsForInstall = new LinkedList();
+    private List<Application> applicationsForRun = new LinkedList();
+    private Map<String, File> pendingInstallations = new HashMap<String, File>();
     private BroadcastReceiver appInstallReceiver;
     private boolean retry = true;
     private boolean loadOnly = false;
@@ -102,8 +119,7 @@ public class ConfigUpdater {
     public static void notifyConfigUpdate(final Context context) {
         if (SettingsHelper.getInstance(context).isMainActivityRunning()) {
             Log.d(Const.LOG_TAG, "Main activity is running, using activity updater");
-            LocalBroadcastManager.getInstance(context).
-                    sendBroadcast(new Intent(Const.ACTION_UPDATE_CONFIGURATION));
+            LocalBroadcastManager.getInstance(context).sendBroadcast(new Intent(Const.ACTION_UPDATE_CONFIGURATION));
         } else {
             Log.d(Const.LOG_TAG, "Main activity is not running, creating a new ConfigUpdater");
             new ConfigUpdater().updateConfig(context, null, false);
@@ -114,7 +130,8 @@ public class ConfigUpdater {
         forceConfigUpdate(context, null, false);
     }
 
-    public static void forceConfigUpdate(final Context context, final UINotifier notifier, final boolean userInteraction) {
+    public static void forceConfigUpdate(final Context context, final UINotifier notifier,
+            final boolean userInteraction) {
         new ConfigUpdater().updateConfig(context, notifier, userInteraction);
     }
 
@@ -123,7 +140,7 @@ public class ConfigUpdater {
     }
 
     public void updateConfig(final Context context, final UINotifier uiNotifier, final boolean userInteraction) {
-        if ( configInitializing ) {
+        if (configInitializing) {
             Log.i(Const.LOG_TAG, "updateConfig(): configInitializing=true, exiting");
             return;
         }
@@ -135,7 +152,8 @@ public class ConfigUpdater {
         this.uiNotifier = uiNotifier;
         this.userInteraction = userInteraction;
 
-        // Work around a strange bug with stale SettingsHelper instance: re-read its value
+        // Work around a strange bug with stale SettingsHelper instance: re-read its
+        // value
         settingsHelper = SettingsHelper.getInstance(context.getApplicationContext());
 
         if (settingsHelper.getConfig() != null && settingsHelper.getConfig().getRestrictions() != null) {
@@ -147,14 +165,14 @@ public class ConfigUpdater {
         if (uiNotifier != null) {
             uiNotifier.onConfigUpdateStart();
         }
-        new GetServerConfigTask( context ) {
+        new GetServerConfigTask(context) {
             @Override
-            protected void onPostExecute( Integer result ) {
-                super.onPostExecute( result );
+            protected void onPostExecute(Integer result) {
+                super.onPostExecute(result);
                 configInitializing = false;
                 Log.i(Const.LOG_TAG, "updateConfig(): set configInitializing=false after getting config");
 
-                switch ( result ) {
+                switch (result) {
                     case Const.TASK_SUCCESS:
                         RemoteLogger.log(context, Const.LOG_INFO, "Configuration updated");
                         // Refresh WorkTime policy
@@ -209,13 +227,14 @@ public class ConfigUpdater {
 
         GetRemoteLogConfigTask task = new GetRemoteLogConfigTask(context) {
             @Override
-            protected void onPostExecute( Integer result ) {
-                super.onPostExecute( result );
+            protected void onPostExecute(Integer result) {
+                super.onPostExecute(result);
                 Log.i(Const.LOG_TAG, "updateRemoteLogConfig(): result=" + result);
                 boolean deviceOwner = Utils.isDeviceOwner(context);
                 RemoteLogger.log(context, Const.LOG_INFO, "Device owner: " + deviceOwner);
                 if (deviceOwner) {
-                    setSelfPermissions(settingsHelper.getConfig() != null ? settingsHelper.getConfig().getAppPermissions() : null);
+                    setSelfPermissions(
+                            settingsHelper.getConfig() != null ? settingsHelper.getConfig().getAppPermissions() : null);
                 }
                 try {
                     if (settingsHelper.getConfig() != null && uiNotifier != null) {
@@ -241,17 +260,20 @@ public class ConfigUpdater {
     }
 
     private void checkServerMigration() {
-        if (settingsHelper != null && settingsHelper.getConfig() != null && settingsHelper.getConfig().getNewServerUrl() != null &&
+        if (settingsHelper != null && settingsHelper.getConfig() != null
+                && settingsHelper.getConfig().getNewServerUrl() != null &&
                 !settingsHelper.getConfig().getNewServerUrl().trim().equals("")) {
             try {
-                final MigrationHelper migrationHelper = new MigrationHelper(settingsHelper.getConfig().getNewServerUrl().trim());
+                final MigrationHelper migrationHelper = new MigrationHelper(
+                        settingsHelper.getConfig().getNewServerUrl().trim());
                 if (migrationHelper.needMigrating(context)) {
                     // Before migration, test that new URL is working well
                     migrationHelper.tryNewServer(context, new MigrationHelper.CompletionHandler() {
                         @Override
                         public void onSuccess() {
                             // Everything is OK, migrate!
-                            RemoteLogger.log(context, Const.LOG_INFO, "Migrated to " + settingsHelper.getConfig().getNewServerUrl().trim());
+                            RemoteLogger.log(context, Const.LOG_INFO,
+                                    "Migrated to " + settingsHelper.getConfig().getNewServerUrl().trim());
                             settingsHelper.setBaseUrl(migrationHelper.getBaseUrl());
                             settingsHelper.setSecondaryBaseUrl(migrationHelper.getBaseUrl());
                             settingsHelper.setServerProject(migrationHelper.getServerProject());
@@ -262,7 +284,8 @@ public class ConfigUpdater {
 
                         @Override
                         public void onError(String cause) {
-                            RemoteLogger.log(context, Const.LOG_WARN, "Failed to migrate to " + settingsHelper.getConfig().getNewServerUrl().trim() + ": " + cause);
+                            RemoteLogger.log(context, Const.LOG_WARN, "Failed to migrate to "
+                                    + settingsHelper.getConfig().getNewServerUrl().trim() + ": " + cause);
                             setupPushService();
                         }
                     });
@@ -270,7 +293,8 @@ public class ConfigUpdater {
                 }
             } catch (Exception e) {
                 // Malformed URL
-                RemoteLogger.log(context, Const.LOG_WARN, "Failed to migrate to " + settingsHelper.getConfig().getNewServerUrl().trim() + ": malformed URL");
+                RemoteLogger.log(context, Const.LOG_WARN, "Failed to migrate to "
+                        + settingsHelper.getConfig().getNewServerUrl().trim() + ": malformed URL");
             }
         }
         setupPushService();
@@ -288,7 +312,7 @@ public class ConfigUpdater {
             }
         }
         if (BuildConfig.ENABLE_PUSH && pushOptions != null) {
-                if (pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_WORKER)
+            if (pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_WORKER)
                     || pushOptions.equals(ServerConfig.PUSH_OPTIONS_MQTT_ALARM)) {
                 try {
                     URL url = new URL(settingsHelper.getBaseUrl());
@@ -345,9 +369,9 @@ public class ConfigUpdater {
             RemoteLogger.log(context, Const.LOG_INFO, "Device reset by server request");
             ConfirmDeviceResetTask confirmTask = new ConfirmDeviceResetTask(context) {
                 @Override
-                protected void onPostExecute( Integer result ) {
+                protected void onPostExecute(Integer result) {
                     // Do a factory reset if we can
-                    if (result == null || result != Const.TASK_SUCCESS ) {
+                    if (result == null || result != Const.TASK_SUCCESS) {
                         RemoteLogger.log(context, Const.LOG_WARN, "Failed to confirm device reset on server");
                     } else if (Utils.checkAdminMode(context)) {
                         // no_factory_reset restriction doesn't prevent against admin's reset action
@@ -379,8 +403,8 @@ public class ConfigUpdater {
             RemoteLogger.log(context, Const.LOG_INFO, "Rebooting by server request");
             ConfirmRebootTask confirmTask = new ConfirmRebootTask(context) {
                 @Override
-                protected void onPostExecute( Integer result ) {
-                    if (result == null || result != Const.TASK_SUCCESS ) {
+                protected void onPostExecute(Integer result) {
+                    if (result == null || result != Const.TASK_SUCCESS) {
                         RemoteLogger.log(context, Const.LOG_WARN, "Failed to confirm reboot on server");
                     } else if (Utils.checkAdminMode(context)) {
                         if (!Utils.reboot(context)) {
@@ -413,7 +437,7 @@ public class ConfigUpdater {
 
             ConfirmPasswordResetTask confirmTask = new ConfirmPasswordResetTask(context) {
                 @Override
-                protected void onPostExecute( Integer result ) {
+                protected void onPostExecute(Integer result) {
                     setDefaultLauncher();
                 }
             };
@@ -429,12 +453,14 @@ public class ConfigUpdater {
     private void setDefaultLauncher() {
         ServerConfig config = settingsHelper != null ? settingsHelper.getConfig() : null;
         if (Utils.isDeviceOwner(context) && config != null) {
-            // "Run default launcher" means we should not set Headwind MDM as a default launcher
+            // "Run default launcher" means we should not set Headwind MDM as a default
+            // launcher
             // and clear the setting if it has been already set
             boolean needSetLauncher = (config.getRunDefaultLauncher() == null || !config.getRunDefaultLauncher());
             String defaultLauncher = Utils.getDefaultLauncher(context);
 
-            // As per the documentation, setting the default preferred activity should not be done on the main thread
+            // As per the documentation, setting the default preferred activity should not
+            // be done on the main thread
             new AsyncTask<Void, Void, Void>() {
                 @Override
                 protected Void doInBackground(Void... voids) {
@@ -466,7 +492,8 @@ public class ConfigUpdater {
             if (proxyUrl != null) {
                 proxyUrl = proxyUrl.trim();
                 if (proxyUrl.equals("0")) {
-                    // null stays for "no changes" (most users won't even know about an option to set up a proxy)
+                    // null stays for "no changes" (most users won't even know about an option to
+                    // set up a proxy)
                     // "0" stays for "clear the proxy previously set up"
                     proxyUrl = null;
                 }
@@ -486,7 +513,8 @@ public class ConfigUpdater {
             @Override
             protected Void doInBackground(Void... voids) {
                 ServerConfig config = settingsHelper.getConfig();
-                // This may be a long procedure due to checksum calculation so execute it in the background thread
+                // This may be a long procedure due to checksum calculation so execute it in the
+                // background thread
                 InstallUtils.generateFilesForInstallList(context, config.getFiles(), filesForInstall);
                 return null;
             }
@@ -505,7 +533,8 @@ public class ConfigUpdater {
     }
 
     private void loadAndInstallFiles() {
-        boolean isGoodNetworkForUpdate = userInteraction || checkUpdateNetworkRestriction(settingsHelper.getConfig(), context);
+        boolean isGoodNetworkForUpdate = userInteraction
+                || checkUpdateNetworkRestriction(settingsHelper.getConfig(), context);
         if (filesForInstall.size() > 0 && !isGoodNetworkForUpdate) {
             RemoteLogger.log(context, Const.LOG_DEBUG, "Updating files not enabled: waiting for WiFi connection");
         }
@@ -527,7 +556,8 @@ public class ConfigUpdater {
                             if (file.exists()) {
                                 file.delete();
                             }
-                            RemoteFileTable.deleteByPath(DatabaseHelper.instance(context).getWritableDatabase(), remoteFile.getPath());
+                            RemoteFileTable.deleteByPath(DatabaseHelper.instance(context).getWritableDatabase(),
+                                    remoteFile.getPath());
                         } catch (Exception e) {
                             RemoteLogger.log(context, Const.LOG_WARN, "Failed to remove file: " +
                                     remoteFile.getPath() + ": " + e.getMessage());
@@ -545,9 +575,11 @@ public class ConfigUpdater {
                         remoteFileStatus.remoteFile = remoteFile;
 
                         DatabaseHelper dbHelper = DatabaseHelper.instance(context);
-                        Download lastDownload = DownloadTable.selectByPath(dbHelper.getReadableDatabase(), remoteFile.getPath());
+                        Download lastDownload = DownloadTable.selectByPath(dbHelper.getReadableDatabase(),
+                                remoteFile.getPath());
                         if (!canDownload(lastDownload, remoteFile.getPath())) {
-                            // Do not make further attempts to download if there were earlier download or installation errors
+                            // Do not make further attempts to download if there were earlier download or
+                            // installation errors
                             return remoteFileStatus;
                         }
 
@@ -557,21 +589,25 @@ public class ConfigUpdater {
                             file = InstallUtils.downloadFile(context, remoteFile.getUrl(),
                                     new InstallUtils.DownloadProgress() {
                                         @Override
-                                        public void onDownloadProgress(final int progress, final long total, final long current) {
+                                        public void onDownloadProgress(final int progress, final long total,
+                                                final long current) {
                                             if (uiNotifier != null) {
                                                 uiNotifier.onDownloadProgress(progress, total, current);
                                             }
                                             // onDownloadProgress() method contents
-                                            /*handler.post(new Runnable() {
-                                                @Override
-                                                public void run() {
-                                                    binding.progress.setMax(100);
-                                                    binding.progress.setProgress(progress);
-
-                                                    binding.setFileLength(total);
-                                                    binding.setDownloadedLength(current);
-                                                }
-                                            });*/
+                                            /*
+                                             * handler.post(new Runnable() {
+                                             * 
+                                             * @Override
+                                             * public void run() {
+                                             * binding.progress.setMax(100);
+                                             * binding.progress.setProgress(progress);
+                                             * 
+                                             * binding.setFileLength(total);
+                                             * binding.setDownloadedLength(current);
+                                             * }
+                                             * });
+                                             */
                                         }
                                     });
                         } catch (Exception e) {
@@ -579,7 +615,8 @@ public class ConfigUpdater {
                                     "Failed to download file " + remoteFile.getPath() + ": " + e.getMessage());
                             e.printStackTrace();
                             // Save the download attempt in the database
-                            saveFailedAttempt(context, lastDownload, remoteFile.getUrl(), remoteFile.getPath(), false, false);
+                            saveFailedAttempt(context, lastDownload, remoteFile.getUrl(), remoteFile.getPath(), false,
+                                    false);
                         }
 
                         if (file != null) {
@@ -600,7 +637,8 @@ public class ConfigUpdater {
                                     if (imei == null || imei.equals("")) {
                                         imei = settingsHelper.getConfig().getImei();
                                     }
-                                    createFileFromTemplate(file, finalFile, settingsHelper.getDeviceId(), imei, settingsHelper.getConfig());
+                                    createFileFromTemplate(file, finalFile, settingsHelper.getDeviceId(), imei,
+                                            settingsHelper.getConfig());
                                 }
                                 RemoteFileTable.insert(dbHelper.getWritableDatabase(), remoteFile);
                                 remoteFileStatus.installed = true;
@@ -621,7 +659,8 @@ public class ConfigUpdater {
                                 }
                                 remoteFileStatus.installed = false;
                                 // Save the install attempt in the database
-                                saveFailedAttempt(context, lastDownload, remoteFile.getUrl(), remoteFile.getPath(), true, false);
+                                saveFailedAttempt(context, lastDownload, remoteFile.getUrl(), remoteFile.getPath(),
+                                        true, false);
                             }
                         } else {
                             remoteFileStatus.downloaded = false;
@@ -636,7 +675,7 @@ public class ConfigUpdater {
                 protected void onPostExecute(RemoteFileStatus fileStatus) {
                     if (fileStatus != null) {
                         if (!fileStatus.installed) {
-                            filesForInstall.add( 0, fileStatus.remoteFile );
+                            filesForInstall.add(0, fileStatus.remoteFile);
                             if (uiNotifier != null) {
                                 if (!fileStatus.downloaded) {
                                     uiNotifier.onFileDownloadError(fileStatus.remoteFile);
@@ -646,16 +685,17 @@ public class ConfigUpdater {
                             }
                             // onFileDownloadError() method contents
                             /*
-                            if (!ProUtils.kioskModeRequired(context)) {
-                                // Notify the error dialog that we're downloading a file, not an app
-                                downloadingFile = true;
-                                createAndShowFileNotDownloadedDialog(fileStatus.remoteFile.getUrl());
-                                binding.setDownloading( false );
-                            } else {
-                                // Avoid user interaction in kiosk mode, just ignore download error and keep the old version
-                                // Note: view is not used in this method so just pass null there
-                                confirmDownloadFailureClicked(null);
-                            }
+                             * if (!ProUtils.kioskModeRequired(context)) {
+                             * // Notify the error dialog that we're downloading a file, not an app
+                             * downloadingFile = true;
+                             * createAndShowFileNotDownloadedDialog(fileStatus.remoteFile.getUrl());
+                             * binding.setDownloading( false );
+                             * } else {
+                             * // Avoid user interaction in kiosk mode, just ignore download error and keep
+                             * the old version
+                             * // Note: view is not used in this method so just pass null there
+                             * confirmDownloadFailureClicked(null);
+                             * }
                              */
                             return;
                         }
@@ -671,8 +711,10 @@ public class ConfigUpdater {
         }
     }
 
-    // Save failed attempt to download or install a file or an app in the database to avoid infinite loops
-    private void saveFailedAttempt(Context context, Download lastDownload, String url, String path, boolean downloaded, boolean installed) {
+    // Save failed attempt to download or install a file or an app in the database
+    // to avoid infinite loops
+    private void saveFailedAttempt(Context context, Download lastDownload, String url, String path, boolean downloaded,
+            boolean installed) {
         if (lastDownload == null) {
             lastDownload = new Download();
             lastDownload.setUrl(url);
@@ -708,10 +750,12 @@ public class ConfigUpdater {
                 RemoteLogger.log(context, Const.LOG_INFO, "Skip downloading " + objectId + ": no active network");
                 return false;
             }
-            Log.d(Const.LOG_TAG, "Active network; " + activeNetwork.getTypeName() + ", download attempts: " + lastDownload.getAttempts());
+            Log.d(Const.LOG_TAG, "Active network; " + activeNetwork.getTypeName() + ", download attempts: "
+                    + lastDownload.getAttempts());
             if (activeNetwork.getType() == ConnectivityManager.TYPE_MOBILE &&
-            !lastDownload.isDownloaded() && lastDownload.getAttempts() > 3) {
-                RemoteLogger.log(context, Const.LOG_INFO, "Skip download due to previous download failures: " + objectId);
+                    !lastDownload.isDownloaded() && lastDownload.getAttempts() > 3) {
+                RemoteLogger.log(context, Const.LOG_INFO,
+                        "Skip download due to previous download failures: " + objectId);
                 return false;
             }
         }
@@ -745,13 +789,15 @@ public class ConfigUpdater {
         }
         // onAppUpdateStart() method contents
         /*
-        binding.setMessage( getString( R.string.main_activity_applications_update ) );
-        configInitialized = true;
+         * binding.setMessage( getString( R.string.main_activity_applications_update )
+         * );
+         * configInitialized = true;
          */
         configInitializing = false;
 
         ServerConfig config = settingsHelper.getConfig();
-        InstallUtils.generateApplicationsForInstallList(context, config.getApplications(), applicationsForInstall, pendingInstallations);
+        InstallUtils.generateApplicationsForInstallList(context, config.getApplications(), applicationsForInstall,
+                pendingInstallations);
 
         Log.i(Const.LOG_TAG, "checkAndUpdateApplications(): list size=" + applicationsForInstall.size());
 
@@ -765,13 +811,16 @@ public class ConfigUpdater {
         public String error;
     }
 
-    // Here we avoid ConcurrentModificationException by executing all operations with applicationForInstall list in a main thread
+    // Here we avoid ConcurrentModificationException by executing all operations
+    // with applicationForInstall list in a main thread
     private void loadAndInstallApplications() {
         boolean isGoodTimeForAppUpdate = userInteraction || checkAppUpdateTimeRestriction(settingsHelper.getConfig());
         if (applicationsForInstall.size() > 0 && !isGoodTimeForAppUpdate) {
-            RemoteLogger.log(context, Const.LOG_DEBUG, "Application update not enabled. Scheduled time: " + settingsHelper.getConfig().getAppUpdateFrom());
+            RemoteLogger.log(context, Const.LOG_DEBUG,
+                    "Application update not enabled. Scheduled time: " + settingsHelper.getConfig().getAppUpdateFrom());
         }
-        boolean isGoodNetworkForUpdate = userInteraction || checkUpdateNetworkRestriction(settingsHelper.getConfig(), context);
+        boolean isGoodNetworkForUpdate = userInteraction
+                || checkUpdateNetworkRestriction(settingsHelper.getConfig(), context);
         if (applicationsForInstall.size() > 0 && !isGoodNetworkForUpdate) {
             RemoteLogger.log(context, Const.LOG_DEBUG, "Application update not enabled: waiting for WiFi connection");
         }
@@ -792,27 +841,29 @@ public class ConfigUpdater {
                             uiNotifier.onAppRemoving(application);
                         }
                         // onAppRemoving() method contents
-                        //updateMessageForApplicationRemoving( application.getName() );
+                        // updateMessageForApplicationRemoving( application.getName() );
                         uninstallApplication(application.getPkg());
 
                     } else if (application.getUrl() == null) {
-                        handler.post( new Runnable() {
+                        handler.post(new Runnable() {
                             @Override
                             public void run() {
                                 Log.i(Const.LOG_TAG, "loadAndInstallApplications(): proceed to next app");
                                 loadAndInstallApplications();
                             }
-                        } );
+                        });
 
                     } else if (application.getUrl().startsWith("market://details")) {
-                        RemoteLogger.log(context, Const.LOG_INFO, "Installing app " + application.getPkg() + " from Google Play");
+                        RemoteLogger.log(context, Const.LOG_INFO,
+                                "Installing app " + application.getPkg() + " from Google Play");
                         installApplicationFromPlayMarket(application.getUrl(), application.getPkg());
                         applicationStatus = new ApplicationStatus();
                         applicationStatus.application = application;
                         applicationStatus.installed = true;
 
                     } else if (application.getUrl().startsWith("file:///")) {
-                        RemoteLogger.log(context, Const.LOG_INFO, "Installing app " + application.getPkg() + " from SD card");
+                        RemoteLogger.log(context, Const.LOG_INFO,
+                                "Installing app " + application.getPkg() + " from SD card");
                         applicationStatus = new ApplicationStatus();
                         applicationStatus.application = application;
                         File file = null;
@@ -825,7 +876,7 @@ public class ConfigUpdater {
                                     uiNotifier.onAppInstalling(application);
                                 }
                                 // onAppInstalling() method contents
-                                //updateMessageForApplicationInstalling(application.getName());
+                                // updateMessageForApplicationInstalling(application.getName());
                                 installApplication(file, application.getPkg(), application.getVersion());
                                 applicationStatus.installed = true;
                             } else {
@@ -843,7 +894,7 @@ public class ConfigUpdater {
                             uiNotifier.onAppDownloading(application);
                         }
                         // onAppDownloading() method contents
-                        //updateMessageForApplicationDownloading(application.getName());
+                        // updateMessageForApplicationDownloading(application.getName());
 
                         applicationStatus = new ApplicationStatus();
                         applicationStatus.application = application;
@@ -852,7 +903,8 @@ public class ConfigUpdater {
                         String tempPath = InstallUtils.getAppTempPath(context, application.getUrl());
                         Download lastDownload = DownloadTable.selectByPath(dbHelper.getReadableDatabase(), tempPath);
                         if (!canDownload(lastDownload, application.getPkg())) {
-                            // Do not make further attempts to download if there were earlier download or installation errors
+                            // Do not make further attempts to download if there were earlier download or
+                            // installation errors
                             applicationStatus.installed = false;
                             return applicationStatus;
                         }
@@ -863,26 +915,29 @@ public class ConfigUpdater {
                             file = InstallUtils.downloadFile(context, application.getUrl(),
                                     new InstallUtils.DownloadProgress() {
                                         @Override
-                                        public void onDownloadProgress(final int progress, final long total, final long current) {
+                                        public void onDownloadProgress(final int progress, final long total,
+                                                final long current) {
                                             if (uiNotifier != null) {
                                                 uiNotifier.onDownloadProgress(progress, total, current);
                                             }
                                             /*
-                                            handler.post(new Runnable() {
-                                                @Override
-                                                public void run() {
-                                                    binding.progress.setMax(100);
-                                                    binding.progress.setProgress(progress);
-
-                                                    binding.setFileLength(total);
-                                                    binding.setDownloadedLength(current);
-                                                }
-                                            });
+                                             * handler.post(new Runnable() {
+                                             * 
+                                             * @Override
+                                             * public void run() {
+                                             * binding.progress.setMax(100);
+                                             * binding.progress.setProgress(progress);
+                                             * 
+                                             * binding.setFileLength(total);
+                                             * binding.setDownloadedLength(current);
+                                             * }
+                                             * });
                                              */
                                         }
                                     });
                         } catch (Exception e) {
-                            RemoteLogger.log(context, Const.LOG_WARN, "Failed to download app " + application.getPkg() + ": " + e.getMessage());
+                            RemoteLogger.log(context, Const.LOG_WARN,
+                                    "Failed to download app " + application.getPkg() + ": " + e.getMessage());
                             e.printStackTrace();
                             // Save the download attempt in the database
                             saveFailedAttempt(context, lastDownload, application.getUrl(), tempPath, false, false);
@@ -894,7 +949,7 @@ public class ConfigUpdater {
                                 uiNotifier.onAppInstalling(application);
                             }
                             // onAppInstalling() method contents
-                            //updateMessageForApplicationInstalling(application.getName());
+                            // updateMessageForApplicationInstalling(application.getName());
                             installApplication(file, application.getPkg(), application.getVersion());
                             applicationStatus.installed = true;
                             // Here we remove app from pending downloads
@@ -918,22 +973,24 @@ public class ConfigUpdater {
                                 applicationsForRun.add(applicationStatus.application);
                             }
                         } else {
-                            applicationsForInstall.add( 0, applicationStatus.application );
+                            applicationsForInstall.add(0, applicationStatus.application);
                             if (uiNotifier != null) {
                                 uiNotifier.onAppDownloadError(applicationStatus.application, applicationStatus.error);
                             }
                             // onAppDownloadError() method contents
                             /*
-                            if (!ProUtils.kioskModeRequired(MainActivity.this)) {
-                                // Notify the error dialog that we're downloading an app
-                                downloadingFile = false;
-                                createAndShowFileNotDownloadedDialog(applicationStatus.application.getName());
-                                binding.setDownloading( false );
-                            } else {
-                                // Avoid user interaction in kiosk mode, just ignore download error and keep the old version
-                                // Note: view is not used in this method so just pass null there
-                                confirmDownloadFailureClicked(null);
-                            }
+                             * if (!ProUtils.kioskModeRequired(MainActivity.this)) {
+                             * // Notify the error dialog that we're downloading an app
+                             * downloadingFile = false;
+                             * createAndShowFileNotDownloadedDialog(applicationStatus.application.getName())
+                             * ;
+                             * binding.setDownloading( false );
+                             * } else {
+                             * // Avoid user interaction in kiosk mode, just ignore download error and keep
+                             * the old version
+                             * // Note: view is not used in this method so just pass null there
+                             * confirmDownloadFailureClicked(null);
+                             * }
                              */
                         }
                     }
@@ -941,8 +998,9 @@ public class ConfigUpdater {
 
             }.execute(application);
         } else {
-            // App install receiver is unregistered after all apps are installed or a timeout happens
-            //unregisterAppInstallReceiver();
+            // App install receiver is unregistered after all apps are installed or a
+            // timeout happens
+            // unregisterAppInstallReceiver();
             lockRestrictions();
         }
     }
@@ -955,7 +1013,46 @@ public class ConfigUpdater {
         Utils.lockPackages(context, lockedPackages, true);
         String unlockedPackages = settingsHelper.getAppPreference(context.getPackageName(), "unlocked_packages");
         Utils.lockPackages(context, unlockedPackages, false);
+
+        applyUninstallProtection();
+
         notifyThreads();
+    }
+
+    private void applyUninstallProtection() {
+        if (!Utils.isDeviceOwner(context)) {
+            return;
+        }
+
+        android.app.admin.DevicePolicyManager dpm = (android.app.admin.DevicePolicyManager) context
+                .getSystemService(Context.DEVICE_POLICY_SERVICE);
+        ComponentName adminComponentName = com.hmdm.launcher.util.LegacyUtils.getAdminComponentName(context);
+
+        if (dpm == null || adminComponentName == null)
+            return;
+
+        ServerConfig config = settingsHelper.getConfig();
+        List<String> explicitlyAllowedProviders = new java.util.ArrayList<>();
+        if (config != null && config.getApplications() != null) {
+            // If we later add an 'allowUninstall' flag to Application.java, check it here.
+            // Currently, we just block all uninstalls by default.
+        }
+
+        List<android.content.pm.ApplicationInfo> packages = context.getPackageManager().getInstalledApplications(0);
+        for (android.content.pm.ApplicationInfo pkg : packages) {
+            try {
+                // By default block uninstall for all apps except our own MDM to avoid locking
+                // ourselves out
+                // if we need to update/uninstall via ADB. Actually DO APIs usually prevent
+                // self-uninstall anyway.
+                if (!context.getPackageName().equals(pkg.packageName)) {
+                    dpm.setUninstallBlocked(adminComponentName, pkg.packageName, true);
+                }
+            } catch (Exception e) {
+                RemoteLogger.log(context, Const.LOG_WARN,
+                        "Failed to set uninstall block for " + pkg.packageName + ": " + e.getMessage());
+            }
+        }
     }
 
     private void notifyThreads() {
@@ -970,12 +1067,14 @@ public class ConfigUpdater {
 
     private void setActions() {
         final ServerConfig config = settingsHelper.getConfig();
-        // As per the documentation, setting the default preferred activity should not be done on the main thread
+        // As per the documentation, setting the default preferred activity should not
+        // be done on the main thread
         new AsyncTask<Void, Void, Void>() {
             @Override
             protected Void doInBackground(Void... voids) {
                 // If kiosk browser is installed, make it a default browser
-                // This is a temporary solution! Perhaps user wants only to open specific hosts / schemes
+                // This is a temporary solution! Perhaps user wants only to open specific hosts
+                // / schemes
                 if (Utils.isDeviceOwner(context)) {
                     if (config.getActions() != null && config.getActions().size() > 0) {
                         for (Action action : config.getActions()) {
@@ -1008,8 +1107,8 @@ public class ConfigUpdater {
 
                 // onConfigUpdateComplete() method contents
                 /*
-                Log.i(Const.LOG_TAG, "Showing content from setActions()");
-                showContent(settingsHelper.getConfig());
+                 * Log.i(Const.LOG_TAG, "Showing content from setActions()");
+                 * showContent(settingsHelper.getConfig());
                  */
             }
         }.execute();
@@ -1039,10 +1138,10 @@ public class ConfigUpdater {
         }.execute();
     }
 
-
     @SuppressLint("WrongConstant,UnspecifiedRegisterReceiverFlag")
     private void registerAppInstallReceiver(final String appPermissionStrategy) {
-        // Here we handle the completion of the silent app installation in the device owner mode
+        // Here we handle the completion of the silent app installation in the device
+        // owner mode
         // These intents are not delivered to LocalBroadcastManager
         if (appInstallReceiver == null) {
             Log.d(Const.LOG_TAG, "Install completion receiver prepared");
@@ -1075,7 +1174,8 @@ public class ConfigUpdater {
                             case PackageInstaller.STATUS_SUCCESS:
                                 String packageName = intent.getStringExtra(Const.PACKAGE_NAME);
                                 if (packageName != null) {
-                                    RemoteLogger.log(context, Const.LOG_DEBUG, "App " + packageName + " installed successfully");
+                                    RemoteLogger.log(context, Const.LOG_DEBUG,
+                                            "App " + packageName + " installed successfully");
                                     Log.i(Const.LOG_TAG, "Install complete: " + packageName);
                                     File file = pendingInstallations.get(packageName);
                                     if (file != null) {
@@ -1086,7 +1186,8 @@ public class ConfigUpdater {
                                         // Always grant all dangerous rights to the app
                                         Utils.autoGrantRequestedPermissions(context, packageName,
                                                 appPermissionStrategy, false);
-                                        if (BuildConfig.SYSTEM_PRIVILEGES && packageName.equals(Const.APUPPET_PACKAGE_NAME)) {
+                                        if (BuildConfig.SYSTEM_PRIVILEGES
+                                                && packageName.equals(Const.APUPPET_PACKAGE_NAME)) {
                                             // Automatically grant required permissions to aPuppet if we can
                                             // Note: device owner can only grant permissions to self, not to other apps!
                                             try {
@@ -1143,7 +1244,8 @@ public class ConfigUpdater {
         try {
             Log.d(Const.LOG_TAG, "Install completion receiver registered");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.registerReceiver(appInstallReceiver, new IntentFilter(Const.ACTION_INSTALL_COMPLETE), Context.RECEIVER_EXPORTED);
+                context.registerReceiver(appInstallReceiver, new IntentFilter(Const.ACTION_INSTALL_COMPLETE),
+                        Context.RECEIVER_EXPORTED);
             } else {
                 context.registerReceiver(appInstallReceiver, new IntentFilter(Const.ACTION_INSTALL_COMPLETE));
             }
@@ -1180,10 +1282,11 @@ public class ConfigUpdater {
     }
 
     // This function is called from a background thread
-    private void installApplication( File file, final String packageName, final String version ) {
+    private void installApplication(File file, final String packageName, final String version) {
         if (packageName.equals(context.getPackageName()) &&
                 context.getPackageManager().getLaunchIntentForPackage(Const.LAUNCHER_RESTARTER_PACKAGE_ID) != null) {
-            // Restart self in EMUI: there's no auto restart after update in EMUI, we must use a helper app
+            // Restart self in EMUI: there's no auto restart after update in EMUI, we must
+            // use a helper app
             startLauncherRestarter();
         }
         String versionData = version == null || version.equals("0") ? "" : " " + version;
@@ -1207,21 +1310,24 @@ public class ConfigUpdater {
                     // Save failed install attempt to prevent next downloads
                     saveFailedAttempt(context, null, "", file.getAbsolutePath(), true, false);
                     /*
-                    handler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            new AlertDialog.Builder(MainActivity.this)
-                                    .setMessage(getString(R.string.install_error) + " " + packageName)
-                                    .setPositiveButton(R.string.dialog_administrator_mode_continue, new DialogInterface.OnClickListener() {
-                                        @Override
-                                        public void onClick(DialogInterface dialog, int which) {
-                                            checkAndStartLauncher();
-                                        }
-                                    })
-                                    .create()
-                                    .show();
-                        }
-                    });
+                     * handler.post(new Runnable() {
+                     * 
+                     * @Override
+                     * public void run() {
+                     * new AlertDialog.Builder(MainActivity.this)
+                     * .setMessage(getString(R.string.install_error) + " " + packageName)
+                     * .setPositiveButton(R.string.dialog_administrator_mode_continue, new
+                     * DialogInterface.OnClickListener() {
+                     * 
+                     * @Override
+                     * public void onClick(DialogInterface dialog, int which) {
+                     * checkAndStartLauncher();
+                     * }
+                     * })
+                     * .create()
+                     * .show();
+                     * }
+                     * });
                      */
                 }
             });
@@ -1261,11 +1367,14 @@ public class ConfigUpdater {
     }
 
     // The following algorithm of launcher restart works in EMUI:
-    // Run EMUI_LAUNCHER_RESTARTER activity once and send the old version number to it.
-    // The restarter application will check the launcher version each second, and restart it
+    // Run EMUI_LAUNCHER_RESTARTER activity once and send the old version number to
+    // it.
+    // The restarter application will check the launcher version each second, and
+    // restart it
     // when it is changed.
     private void startLauncherRestarter() {
-        // Sending an intent before updating, otherwise the launcher may be terminated at any time
+        // Sending an intent before updating, otherwise the launcher may be terminated
+        // at any time
         Intent intent = context.getPackageManager().getLaunchIntentForPackage(Const.LAUNCHER_RESTARTER_PACKAGE_ID);
         if (intent == null) {
             Log.i("LauncherRestarter", "No restarter app, please add it in the config!");
@@ -1278,10 +1387,13 @@ public class ConfigUpdater {
 
     // Create a new file from the template file
     // (replace DEVICE_NUMBER, IMEI, CUSTOM* by their values)
-    private void createFileFromTemplate(File srcFile, File dstFile, String deviceId, String imei, ServerConfig config) throws IOException {
+    private void createFileFromTemplate(File srcFile, File dstFile, String deviceId, String imei, ServerConfig config)
+            throws IOException {
         // We are supposed to process only small text files
-        // So here we are reading the whole file, replacing variables, and save the content
-        // It is not optimal for large files - it would be better to replace in a stream (how?)
+        // So here we are reading the whole file, replacing variables, and save the
+        // content
+        // It is not optimal for large files - it would be better to replace in a stream
+        // (how?)
         String content = FileUtils.readFileToString(srcFile);
         content = content.replace("DEVICE_NUMBER", deviceId)
                 .replace("IMEI", imei != null ? imei : "")

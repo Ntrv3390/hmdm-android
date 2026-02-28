@@ -35,11 +35,18 @@ public class AppShortcutManager {
         }
         // Calculate applications
         int packageCount = 0;
-        for(int i = 0; i < packs.size(); i++) {
+        for (int i = 0; i < packs.size(); i++) {
             ApplicationInfo p = packs.get(i);
-            if (context.getPackageManager().getLaunchIntentForPackage(p.packageName) != null &&
-                    requiredPackages.containsKey(p.packageName)) {
-                packageCount++;
+            if ("com.android.settings".equals(p.packageName))
+                continue;
+
+            if (context.getPackageManager().getLaunchIntentForPackage(p.packageName) != null) {
+                if (requiredPackages.containsKey(p.packageName)) {
+                    packageCount++;
+                } else if (!bottom
+                        && com.hmdm.launcher.util.WorkTimeManager.getInstance().isAppAllowed(p.packageName)) {
+                    packageCount++;
+                }
             }
         }
         return requiredLinks.size() + packageCount;
@@ -56,27 +63,40 @@ public class AppShortcutManager {
             return new ArrayList<AppInfo>();
         }
         // First we display app icons
-        for(int i = 0; i < packs.size(); i++) {
+        for (int i = 0; i < packs.size(); i++) {
             ApplicationInfo p = packs.get(i);
-            if ( context.getPackageManager().getLaunchIntentForPackage(p.packageName) != null &&
-                    requiredPackages.containsKey( p.packageName ) ) {
-                Application app = requiredPackages.get(p.packageName);
-                AppInfo newInfo = new AppInfo();
-                newInfo.type = AppInfo.TYPE_APP;
-                newInfo.keyCode = app.getKeyCode();
-                newInfo.name = app.getIconText() != null ? app.getIconText() : p.loadLabel(context.getPackageManager()).toString();
-                newInfo.packageName = p.packageName;
-                newInfo.iconUrl = app.getIcon();
-                newInfo.screenOrder = app.getScreenOrder();
-                newInfo.longTap = app.isLongTap() ? 1 : 0;
-                appInfos.add(newInfo);
+            if ("com.android.settings".equals(p.packageName))
+                continue;
+
+            if (context.getPackageManager().getLaunchIntentForPackage(p.packageName) != null) {
+                if (requiredPackages.containsKey(p.packageName)) {
+                    Application app = requiredPackages.get(p.packageName);
+                    AppInfo newInfo = new AppInfo();
+                    newInfo.type = AppInfo.TYPE_APP;
+                    newInfo.keyCode = app.getKeyCode();
+                    newInfo.name = app.getIconText() != null ? app.getIconText()
+                            : p.loadLabel(context.getPackageManager()).toString();
+                    newInfo.packageName = p.packageName;
+                    newInfo.iconUrl = app.getIcon();
+                    newInfo.screenOrder = app.getScreenOrder();
+                    newInfo.longTap = app.isLongTap() ? 1 : 0;
+                    appInfos.add(newInfo);
+                } else if (!bottom
+                        && com.hmdm.launcher.util.WorkTimeManager.getInstance().isAppAllowed(p.packageName)) {
+                    AppInfo newInfo = new AppInfo();
+                    newInfo.type = AppInfo.TYPE_APP;
+                    newInfo.name = p.loadLabel(context.getPackageManager()).toString();
+                    newInfo.packageName = p.packageName;
+                    appInfos.add(newInfo);
+                }
             }
         }
 
         // Then we display weblinks
         for (Map.Entry<String, Application> entry : requiredLinks.entrySet()) {
             AppInfo newInfo = new AppInfo();
-            newInfo.type = entry.getValue().getType().equals(Application.TYPE_INTENT) ? AppInfo.TYPE_INTENT : AppInfo.TYPE_WEB;
+            newInfo.type = entry.getValue().getType().equals(Application.TYPE_INTENT) ? AppInfo.TYPE_INTENT
+                    : AppInfo.TYPE_WEB;
             newInfo.keyCode = entry.getValue().getKeyCode();
             newInfo.name = entry.getValue().getIconText();
             newInfo.url = entry.getValue().getUrl();
@@ -93,14 +113,16 @@ public class AppShortcutManager {
         return appInfos;
     }
 
-    private void getConfiguredApps(Context context, boolean bottom, Map<String, Application> requiredPackages, Map<String, Application> requiredLinks) {
-        SettingsHelper config = SettingsHelper.getInstance( context );
+    private void getConfiguredApps(Context context, boolean bottom, Map<String, Application> requiredPackages,
+            Map<String, Application> requiredLinks) {
+        SettingsHelper config = SettingsHelper.getInstance(context);
         com.hmdm.launcher.util.WorkTimeManager.getInstance().updatePolicy(context);
-        if ( config.getConfig() != null ) {
-            List< Application > applications = SettingsHelper.getInstance( context ).getConfig().getApplications();
-            for ( Application application : applications ) {
+        if (config.getConfig() != null) {
+            List<Application> applications = SettingsHelper.getInstance(context).getConfig().getApplications();
+            for (Application application : applications) {
                 if (application.getType() == null || application.getType().equals(Application.TYPE_APP)) {
-                    if (application.getPkg() != null && !com.hmdm.launcher.util.WorkTimeManager.getInstance().isAppAllowed(application.getPkg())) {
+                    if (application.getPkg() != null && !com.hmdm.launcher.util.WorkTimeManager.getInstance()
+                            .isAppAllowed(application.getPkg())) {
                         continue;
                     }
                 }
